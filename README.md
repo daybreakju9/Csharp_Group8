@@ -1,279 +1,415 @@
-# 图片选取对比系统
+# 图像选择标注系统 (Image Selection & Annotation System)
 
-一个完整的前后端分离的图片选取对比系统，支持多项目、多队列管理，用户可以从多个图片中选择最佳图片，并记录选择进度。
+一个功能完整的图像选择和标注管理系统，支持多项目、多队列的图像管理和用户协作，提供Web端和桌面客户端两种访问方式。
 
-## 技术栈
+## 目录
 
-### 后端
-- ASP.NET Core 8.0
-- Entity Framework Core
-- MySQL 数据库
-- JWT 认证
-- Pomelo MySQL 驱动
-
-### 前端
-- Vue 3 + TypeScript
-- Vite
-- Element Plus UI
-- Pinia 状态管理
-- Vue Router
-- Axios
+- [功能特性](#功能特性)
+- [技术栈](#技术栈)
+- [系统架构](#系统架构)
+- [环境要求](#环境要求)
+- [快速开始](#快速开始)
+- [项目结构](#项目结构)
+- [API文档](#api文档)
+- [用户角色](#用户角色)
+- [开发指南](#开发指南)
+- [部署说明](#部署说明)
 
 ## 功能特性
 
-### 用户功能
-- ✅ 用户注册和登录
-- ✅ 浏览项目列表
-- ✅ 查看项目的队列
-- ✅ 图片对比选择（支持2-10张同时对比）
-- ✅ 实时显示选择进度
-- ✅ 自动保存选择记录
+### 核心功能
+
+- **项目管理**：支持创建和管理多个图像标注项目
+- **队列系统**：为每个项目创建多个工作队列，实现任务分配和进度追踪
+- **图像选择**：用户可以对图像进行选择标注，记录选择结果
+- **数据导出**：支持导出标注数据，便于后续数据分析
+- **用户管理**：完整的用户注册、登录和权限管理系统
+- **进度追踪**：实时追踪用户的标注进度
 
 ### 管理员功能
-- ✅ 项目管理（创建、编辑、删除）
-- ✅ 队列管理（创建、编辑、删除、配置对比数量）
-- ✅ 批量导入图片（从多个同名文件夹）
-- ✅ 导出选择数据（CSV/JSON）
-- ✅ 查看所有用户进度
 
-## 数据库配置
+- 项目创建和管理
+- 队列创建和配置
+- 批量图像导入（支持最大500MB）
+- 用户管理和角色分配
+- 数据导出和统计
 
-系统使用 MySQL 数据库，连接信息已配置：
-- 服务器: `100.72.46.27`
-- 数据库: `dotnet`
-- 用户名: `dotnet`
-- 密码: `dotnet`
+### 普通用户功能
 
-数据库将在首次运行时自动创建表结构。
+- 查看分配的项目和队列
+- 进行图像选择标注
+- 查看个人标注进度
+- 提交标注结果
+
+## 技术栈
+
+### 后端 (Backend)
+
+- **框架**：ASP.NET Core 8.0
+- **数据库**：MySQL
+- **ORM**：Entity Framework Core + Pomelo.EntityFrameworkCore.MySql
+- **认证**：JWT (JSON Web Tokens)
+- **密码加密**：BCrypt.Net
+- **API文档**：Swagger/OpenAPI
+- **容器化**：Docker支持
+
+
+### 桌面客户端 (DesktopClient)
+
+- **框架**：.NET 8.0 Windows Forms
+- **目标平台**：Windows
+- **功能**：图像标注应用
+
+### 前端 (Frontend)
+
+- **框架**：Vue 3 + TypeScript
+- **构建工具**：Vite
+- **UI组件库**：Element Plus
+- **状态管理**：Pinia
+- **路由管理**：Vue Router
+- **HTTP客户端**：Axios
+
+## 系统架构
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│   Web Frontend  │         │ Desktop Client  │
+│   (Vue 3 + TS)  │         │  (WinForms)     │
+└────────┬────────┘         └────────┬────────┘
+         │                           │
+         │      HTTP/HTTPS + JWT     │
+         │                           │
+         └───────────┬───────────────┘
+                     │
+         ┌───────────▼────────────┐
+         │   Backend API Server   │
+         │  (ASP.NET Core 8.0)    │
+         └───────────┬────────────┘
+                     │
+         ┌───────────▼────────────┐
+         │   MySQL Database       │
+         │  (Projects, Queues,    │
+         │   Images, Users, etc)  │
+         └────────────────────────┘
+```
+
+## 环境要求
+
+### 后端
+
+- .NET 8.0 SDK
+- MySQL 8.0+
+- 操作系统：Windows/Linux/macOS
+
+### 前端
+
+- Node.js 18.0+
+- npm 9.0+
+
+### 桌面客户端
+
+- .NET 8.0 Runtime (Windows)
+- Windows 10/11
 
 ## 快速开始
 
-### 1. 运行后端
+### 1. 数据库配置
+
+首先确保MySQL服务已启动，然后创建数据库：
+
+```sql
+CREATE DATABASE dotnet CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'dotnet'@'%' IDENTIFIED BY 'dotnet';
+GRANT ALL PRIVILEGES ON dotnet.* TO 'dotnet'@'%';
+FLUSH PRIVILEGES;
+```
+
+### 2. 后端启动
 
 ```bash
 cd Backend
+
+# 配置数据库连接
+# 编辑 appsettings.json 中的 ConnectionStrings
+
+# 还原依赖
 dotnet restore
+
+# 运行项目
 dotnet run
 ```
 
-后端将在 `http://localhost:5000` 启动。
+后端将在 `http://localhost:5000` 启动，Swagger文档可在 `http://localhost:5000/swagger` 访问。
 
-API 文档（Swagger）：`http://localhost:5000/swagger`
-
-### 2. 运行前端
+### 3. 前端启动
 
 ```bash
-# 确保使用 Node.js 24
-nvs use 24
-
 cd frontend
+
+# 安装依赖
 npm install
+
+# 启动开发服务器
 npm run dev
 ```
 
-前端将在 `http://localhost:5173` 启动。
+前端将在 `http://localhost:5174` 启动。
 
-## 使用流程
+### 4. 桌面客户端启动
 
-### 1. 注册和登录
-1. 访问 `http://localhost:5173`
-2. 点击"注册新账号"
-3. 填写用户名、密码并选择角色（管理员/普通用户）
-4. 注册成功后自动登录
+```bash
+cd DesktopClient/ImageAnnotationApp
 
-### 2. 管理员操作
+# 运行项目
+dotnet run
+```
 
-#### 2.1 项目管理
-1. 访问管理员页面：以管理员身份登录后，点击头像或导航到 `/admin/projects`
-2. 创建项目：
-   - 点击"创建项目"按钮
-   - 填写项目名称和描述
-   - 提交后项目即可被用户看到
-3. 编辑/删除项目：在项目列表中操作
+### 5. 默认管理员账号
 
-#### 2.2 队列管理
-1. 进入队列管理：点击左侧菜单"队列管理"
-2. 筛选队列：可以按项目筛选队列列表
-3. 创建队列：
-   - 点击"创建队列"按钮
-   - 选择所属项目
-   - 输入队列名称
-   - 设置对比图片数（2-10张）- 这决定了每组同时显示多少张图片供用户选择
-4. 编辑队列：修改队列名称和对比图片数
-5. 导入图片：点击"导入图片"按钮进入图片导入页面
-6. 删除队列：删除队列会同时删除相关的所有图片和选择记录
+系统首次启动时，建议通过注册页面创建第一个用户，然后在数据库中手动将该用户的角色设置为"Admin"：
 
-#### 2.3 批量导入图片
-1. 进入导入页面：
-   - 在队列管理页面点击"导入图片"按钮
-   - 系统会自动创建与"对比图片数"相同数量的文件夹上传区域
-
-2. 为每个文件夹命名：
-   - 为每个文件夹输入一个有意义的名称（如：method_a, method_b, original 等）
-   - 文件夹名称不能重复
-   - 这些名称将在用户选择时显示
-
-3. 上传图片到各个文件夹：
-   - 在每个文件夹的上传区域，上传对应的图片
-   - **重要**：不同文件夹中的**同名图片**会被自动分组用于对比
-   - 例如：
-     - method_a 文件夹：`image1.jpg`, `image2.jpg`, `image3.jpg`
-     - method_b 文件夹：`image1.jpg`, `image2.jpg`, `image3.jpg`
-     - 系统会生成 3 个对比组：image1组、image2组、image3组
-
-4. 查看预览：
-   - 系统会显示所有图片组的预览表格
-   - 绿色勾表示该文件在此文件夹中存在
-   - 红色叉表示该文件缺失
-   - "完整"标签表示该组在所有文件夹中都有对应文件
-
-5. 提交导入：
-   - 确认所有文件夹都有图片且已命名
-   - 点击"开始导入"上传到服务器
-   - 如有不完整的图片组，系统会提示确认
-
-#### 2.4 数据导出
-1. 进入数据导出：点击左侧菜单"数据导出"
-2. 导出选择记录：
-   - 选择要导出的队列
-   - 选择导出格式（CSV 或 JSON）
-   - 点击"导出选择记录"下载文件
-   - 包含：用户ID、用户名、图片组、选择的文件夹、文件名、时间
-3. 导出进度数据：
-   - 可选择特定队列或导出所有队列
-   - 选择导出格式（CSV 或 JSON）
-   - 点击"导出进度数据"下载文件
-   - 包含：队列信息、用户信息、完成数、总数、进度百分比
-4. 快速导出：在数据统计表格中直接点击"导出选择"或"导出进度"按钮（默认CSV格式）
-
-### 3. 用户操作
-1. 查看项目：登录后自动进入项目列表
-2. 选择队列：点击项目查看其下的队列
-3. 开始选择：
-   - 点击"开始选择"进入图片对比界面
-   - 系统会显示同一组的多张图片（来自不同文件夹）
-   - 点击选择一张图片
-   - 提交后自动加载下一组
-4. 查看进度：顶部进度条显示已完成/总数
-
-## API 端点
-
-### 认证
-- `POST /api/auth/register` - 用户注册
-- `POST /api/auth/login` - 用户登录
-
-### 项目管理
-- `GET /api/projects` - 获取所有项目
-- `POST /api/projects` - 创建项目（管理员）
-- `PUT /api/projects/{id}` - 更新项目（管理员）
-- `DELETE /api/projects/{id}` - 删除项目（管理员）
-
-### 队列管理
-- `GET /api/queues?projectId={id}` - 获取队列列表
-- `POST /api/queues` - 创建队列（管理员）
-- `PUT /api/queues/{id}` - 更新队列（管理员）
-- `DELETE /api/queues/{id}` - 删除队列（管理员）
-
-### 图片管理
-- `GET /api/images/next-group/{queueId}` - 获取下一组待选择图片
-- `POST /api/images/import` - 导入图片（管理员）
-
-### 选择记录
-- `POST /api/selections` - 提交选择
-- `GET /api/selections/progress/{queueId}` - 获取用户进度
-- `GET /api/selections/queue/{queueId}` - 获取队列的选择记录
-
-### 数据导出
-- `GET /api/export/selections?queueId={id}&format=csv|json` - 导出选择数据
-- `GET /api/export/progress?queueId={id}&format=csv|json` - 导出进度数据
+```sql
+UPDATE Users SET Role = 'Admin' WHERE Username = 'your_username';
+```
 
 ## 项目结构
 
 ```
 final/
-├── Backend/                    # 后端项目
-│   ├── Controllers/           # API 控制器
+├── Backend/                    # 后端API服务
+│   ├── Controllers/           # API控制器
+│   │   ├── AuthController.cs       # 认证接口
+│   │   ├── UsersController.cs      # 用户管理
+│   │   ├── ProjectsController.cs   # 项目管理
+│   │   ├── QueuesController.cs     # 队列管理
+│   │   ├── ImagesController.cs     # 图像管理
+│   │   ├── SelectionsController.cs # 选择记录
+│   │   └── ExportController.cs     # 数据导出
 │   ├── Models/                # 数据模型
+│   │   ├── User.cs                 # 用户模型
+│   │   ├── Project.cs              # 项目模型
+│   │   ├── Queue.cs                # 队列模型
+│   │   ├── Image.cs                # 图像模型
+│   │   ├── SelectionRecord.cs      # 选择记录
+│   │   └── UserProgress.cs         # 用户进度
 │   ├── DTOs/                  # 数据传输对象
 │   ├── Data/                  # 数据库上下文
-│   ├── Services/              # 服务层
-│   └── Program.cs             # 程序入口
+│   ├── Services/              # 业务服务层
+│   ├── uploads/               # 图像上传目录
+│   ├── Program.cs             # 应用入口
+│   └── appsettings.json       # 配置文件
 │
-├── frontend/                   # 前端项目
+├── frontend/                   # Web前端应用
 │   ├── src/
-│   │   ├── api/              # API 封装
-│   │   ├── stores/           # Pinia 状态管理
-│   │   ├── router/           # 路由配置
-│   │   ├── views/            # 页面组件
-│   │   │   ├── admin/        # 管理员页面
-│   │   │   └── user/         # 用户页面
-│   │   ├── types/            # TypeScript 类型
-│   │   └── App.vue           # 根组件
-│   └── vite.config.ts        # Vite 配置
+│   │   ├── api/               # API接口封装
+│   │   ├── stores/            # Pinia状态管理
+│   │   ├── router/            # 路由配置
+│   │   ├── views/             # 页面组件
+│   │   │   ├── Login.vue           # 登录页
+│   │   │   ├── Register.vue        # 注册页
+│   │   │   ├── user/               # 用户功能页面
+│   │   │   │   ├── ProjectList.vue
+│   │   │   │   ├── QueueList.vue
+│   │   │   │   └── ImageSelection.vue
+│   │   │   └── admin/              # 管理员页面
+│   │   │       ├── ProjectManagement.vue
+│   │   │       ├── QueueManagement.vue
+│   │   │       ├── ImageImport.vue
+│   │   │       ├── DataExport.vue
+│   │   │       └── UserManagement.vue
+│   │   ├── types/             # TypeScript类型定义
+│   │   ├── App.vue            # 根组件
+│   │   └── main.ts            # 应用入口
+│   ├── package.json
+│   └── vite.config.ts
 │
-└── README.md                   # 项目说明
+└── DesktopClient/              # 桌面客户端
+    └── ImageAnnotationApp/     # 图像标注应用
+        └── ImageAnnotationApp.csproj
 ```
 
-## 数据库表结构
+## API文档
 
-- **Users**: 用户表（ID, 用户名, 密码哈希, 角色）
-- **Projects**: 项目表（ID, 名称, 描述, 创建者）
-- **Queues**: 队列表（ID, 项目ID, 名称, 对比图片数）
-- **Images**: 图片表（ID, 队列ID, 图片组, 文件夹名, 文件名, 路径）
-- **SelectionRecords**: 选择记录表（ID, 队列ID, 用户ID, 图片组, 选中图片ID）
-- **UserProgress**: 进度表（ID, 队列ID, 用户ID, 已完成数, 总数）
+### 认证接口
 
-## 注意事项
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/auth/register` | 用户注册 |
+| POST | `/api/auth/login` | 用户登录 |
 
-1. **图片导入格式**: 
-   - 从多个文件夹导入同名图片
-   - 同名图片会被分组在一起进行对比
-   - 示例：folder1/img1.jpg, folder2/img1.jpg 会作为一组
+### 用户管理
 
-2. **对比数量配置**: 
-   - 每个队列可以独立配置同时对比的图片数量（2-10张）
-   - 例如设置为3，则每次显示3张来自不同文件夹的同名图片
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/users` | 获取用户列表 | Admin |
+| GET | `/api/users/{id}` | 获取用户详情 | Admin |
+| PUT | `/api/users/{id}` | 更新用户信息 | Admin |
+| DELETE | `/api/users/{id}` | 删除用户 | Admin |
 
-3. **进度追踪**: 
-   - 系统自动记录每个用户在每个队列中的进度
-   - 用户可以随时中断，下次继续从未完成的图片组开始
+### 项目管理
 
-4. **权限控制**: 
-   - 管理员可以管理项目、队列，导入图片，导出数据
-   - 普通用户只能查看项目和进行图片选择
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/projects` | 获取项目列表 | All |
+| GET | `/api/projects/{id}` | 获取项目详情 | All |
+| POST | `/api/projects` | 创建项目 | Admin |
+| PUT | `/api/projects/{id}` | 更新项目 | Admin |
+| DELETE | `/api/projects/{id}` | 删除项目 | Admin |
 
-## 开发说明
+### 队列管理
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/queues` | 获取队列列表 | All |
+| GET | `/api/queues/{id}` | 获取队列详情 | All |
+| POST | `/api/queues` | 创建队列 | Admin |
+| PUT | `/api/queues/{id}` | 更新队列 | Admin |
+| DELETE | `/api/queues/{id}` | 删除队列 | Admin |
+
+### 图像管理
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/images/queue/{queueId}` | 获取队列中的图像 | All |
+| POST | `/api/images/upload` | 批量上传图像 | Admin |
+| DELETE | `/api/images/{id}` | 删除图像 | Admin |
+
+### 选择记录
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/api/selections` | 提交选择记录 | User/Admin |
+| GET | `/api/selections/queue/{queueId}` | 获取队列的选择记录 | Admin |
+
+### 数据导出
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/export/{projectId}` | 导出项目数据 | Admin |
+
+完整API文档可通过Swagger访问：`http://localhost:5000/swagger`
+
+## 用户角色
+
+系统支持三种用户角色：
+
+### 1. Admin (管理员)
+- 完整的系统管理权限
+- 可以创建/编辑/删除项目、队列、用户
+- 可以导入图像和导出数据
+- 可以查看所有用户的标注进度
+
+### 2. User (普通用户)
+- 可以查看分配的项目和队列
+- 可以进行图像选择标注
+- 可以查看自己的标注进度
+
+### 3. Guest (游客)
+- 仅可以查看项目列表
+- 无法进行标注操作
+- 访问权限最低
+
+## 开发指南
 
 ### 后端开发
+
+#### 添加新的API端点
+
+1. 在 `Controllers/` 目录下创建或编辑控制器
+2. 在 `Models/` 目录下定义数据模型
+3. 在 `DTOs/` 目录下定义数据传输对象
+4. 在 `Data/AppDbContext.cs` 中注册DbSet
+
+#### 数据库迁移
+
 ```bash
-cd Backend
-dotnet watch run  # 热重载模式
+# 添加迁移
+dotnet ef migrations add MigrationName
+
+# 应用迁移
+dotnet ef database update
 ```
 
 ### 前端开发
+
+#### 添加新页面
+
+1. 在 `src/views/` 目录下创建Vue组件
+2. 在 `src/router/index.ts` 中注册路由
+3. 在 `src/api/` 中添加API调用方法
+4. 在 `src/types/` 中定义TypeScript类型
+
+#### 构建生产版本
+
 ```bash
-cd frontend
-npm run dev  # 开发服务器
-npm run build  # 生产构建
+npm run build
 ```
 
-## 故障排除
+构建产物将生成在 `dist/` 目录。
 
-### 数据库连接失败
-- 检查 MySQL 服务是否运行
-- 确认 `appsettings.json` 中的连接字符串正确
-- 确保防火墙允许数据库连接
+### 代码规范
 
-### 前端无法连接后端
-- 确认后端正在运行在 `localhost:5000`
-- 检查 CORS 配置是否正确
-- 查看浏览器控制台的网络请求
+- 后端：遵循C# 命名约定和.NET最佳实践
+- 前端：使用ESLint和Prettier进行代码格式化
+- 提交前确保代码通过所有测试
 
-### Node.js 版本问题
-- 确保使用 Node.js 24: `nvs use 24`
-- 如果 nvs 未安装，使用 nvm 或直接安装 Node.js 24
+## 部署说明
+
+### Docker部署
+
+后端项目已包含Dockerfile，可以使用Docker部署：
+
+```bash
+cd Backend
+
+# 构建镜像
+docker build -t image-selection-backend .
+
+# 运行容器
+docker run -d -p 5000:8080 \
+  -e ConnectionStrings__DefaultConnection="Server=your_mysql_host;Database=dotnet;User=dotnet;Password=dotnet;" \
+  image-selection-backend
+```
+
+### 生产环境配置
+
+1. **后端配置**：
+   - 修改 `appsettings.json` 中的数据库连接字符串
+   - 修改JWT密钥为强随机字符串
+   - 配置CORS允许的域名
+   - 配置文件上传目录的磁盘空间
+
+2. **前端配置**：
+   - 修改API基础URL指向生产环境后端
+   - 构建生产版本并部署到Web服务器
+   - 配置Nginx或其他反向代理
+
+3. **数据库配置**：
+   - 确保MySQL使用utf8mb4字符集
+   - 配置数据库备份策略
+   - 优化数据库性能参数
+
+### 安全建议
+
+- 使用HTTPS协议
+- 定期更新JWT密钥
+- 限制文件上传大小和类型
+- 定期备份数据库
+- 使用强密码策略
+- 启用API速率限制
 
 ## 许可证
 
 MIT License
 
+## 联系方式
+
+如有问题或建议，请通过以下方式联系：
+
+- 提交Issue
+- 发送邮件
+- 提交Pull Request
+
+---
+
+生成时间：2025-01-21
