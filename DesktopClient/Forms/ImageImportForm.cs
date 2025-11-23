@@ -15,6 +15,7 @@ namespace ImageAnnotationApp.Forms
         private ListView listViewPreview = null!;
         private ListView listViewUploaded = null!;
         private ToolStripLabel lblUploadedCount = null!;
+        private Panel progressPanel = null!;
         private ProgressBar progressBar = null!;
         private Label lblProgress = null!;
         private Button btnImport = null!;
@@ -167,11 +168,12 @@ namespace ImageAnnotationApp.Forms
             tabControl.TabPages.Add(tabUploaded);
 
             // 进度条
-            var progressPanel = new Panel
+            progressPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
                 Height = 60,
-                Padding = new Padding(10)
+                Padding = new Padding(10),
+                Visible = false
             };
 
             progressBar = new ProgressBar
@@ -191,7 +193,6 @@ namespace ImageAnnotationApp.Forms
 
             progressPanel.Controls.Add(progressBar);
             progressPanel.Controls.Add(lblProgress);
-            progressPanel.Visible = false;
 
             // 按钮面板
             var buttonPanel = new Panel
@@ -414,6 +415,7 @@ namespace ImageAnnotationApp.Forms
             _isUploading = true;
             btnImport.Enabled = false;
             btnCancel.Enabled = false;
+            progressPanel.Visible = true;
             progressBar.Value = 0;
             progressBar.Visible = true;
             lblProgress.Visible = true;
@@ -459,7 +461,6 @@ namespace ImageAnnotationApp.Forms
                 {
                     progressBar.Value = (int)p.Percentage;
                     lblProgress.Text = $"上传中: {p.CompletedFiles} / {p.TotalFiles} ({p.Percentage:F1}%) - {p.CurrentFile}";
-                    Application.DoEvents();
                 });
 
                 var result = await _imageService.UploadImagesParallelAsync(
@@ -506,6 +507,7 @@ namespace ImageAnnotationApp.Forms
                 _isUploading = false;
                 btnImport.Enabled = true;
                 btnCancel.Enabled = true;
+                progressPanel.Visible = false;
                 progressBar.Visible = false;
                 lblProgress.Visible = false;
             }

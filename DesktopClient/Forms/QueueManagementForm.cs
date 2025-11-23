@@ -218,7 +218,9 @@ namespace ImageAnnotationApp.Forms
             {
                 Location = new Point(120, 17),
                 Size = new Size(280, 23),
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                DisplayMember = "Name",
+                ValueMember = "Id"
             };
             foreach (var project in _allProjects)
             {
