@@ -8,15 +8,11 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
     public AppDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        
-        // 设计时使用的连接字符串（仅用于生成迁移，不实际连接）
-        var connectionString = "Server=localhost;Database=dotnet;User=root;Password=password;";
-        
-        optionsBuilder.UseMySql(
-            connectionString, 
-            new MySqlServerVersion(new Version(8, 0, 21)),
-            mySqlOptions => mySqlOptions.EnableRetryOnFailure(0)
-        );
+
+        // 设计时使用的连接字符串（用于生成迁移）
+        var connectionString = "Data Source=app.db";
+
+        optionsBuilder.UseSqlite(connectionString);
 
         return new AppDbContext(optionsBuilder.Options);
     }

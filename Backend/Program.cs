@@ -31,10 +31,10 @@ builder.Services.AddSwaggerGen();
 // Register custom services
 builder.Services.AddScoped<IJwtService, JwtService>();
 
-// Configure MySQL Database
+// Configure SQLite Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseSqlite(connectionString));
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -83,6 +83,25 @@ using (var scope = app.Services.CreateScope())
     {
         dbContext.Database.EnsureCreated();
         Console.WriteLine("Database initialized successfully.");
+
+        // 创建默认管理员账号
+        if (!dbContext.Users.Any(u => u.Username == "admin"))
+        {
+            var adminUser = new Backend.Models.User
+            {
+                Username = "admin",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                Role = "Admin",
+                CreatedAt = DateTime.UtcNow
+            };
+            dbContext.Users.Add(adminUser);
+            dbContext.SaveChanges();
+            Console.WriteLine("Default admin user created: admin/Admin@123");
+        }
+        else
+        {
+            Console.WriteLine("Admin user already exists.");
+        }
     }
     catch (Exception ex)
     {
