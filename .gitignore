@@ -5,11 +5,11 @@ Backend/*.user
 Backend/*.suo
 Backend/*.cache
 Backend/uploads/
-DesktopClient/ImageAnnotationApp/bin/
-DesktopClient/ImageAnnotationApp/obj/
-DesktopClient/ImageAnnotationApp/*.user
-DesktopClient/ImageAnnotationApp/*.suo
-DesktopClient/ImageAnnotationApp/*.cache
+DesktopClient/bin/
+DesktopClient/obj/
+DesktopClient/*.user
+DesktopClient/*.suo
+DesktopClient/*.cache
 
 # Node.js
 node_modules/
