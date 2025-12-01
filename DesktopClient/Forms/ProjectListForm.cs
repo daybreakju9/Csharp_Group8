@@ -1,9 +1,10 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    public partial class ProjectListForm : Form
+    public partial class ProjectListForm : BaseForm
     {
         private readonly ProjectService _projectService;
         private readonly AuthService _authService;
@@ -15,13 +16,13 @@ namespace ImageAnnotationApp.Forms
             _projectService = new ProjectService();
             _authService = AuthService.Instance;
             InitializeCustomComponents();
-            LoadProjectsAsync();
+            _ = LoadProjectsAsync();
         }
 
         private void InitializeCustomComponents()
         {
-            this.Text = "项目列表";
-            this.Size = new Size(900, 600);
+            this.Text = UIConstants.FormatWindowTitle("项目列表");
+            this.Size = UIConstants.WindowSizes.Medium;
 
             // ListView
             listView = new ListView
@@ -54,6 +55,7 @@ namespace ImageAnnotationApp.Forms
         {
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Loading);
                 btnRefresh.Enabled = false;
                 listView.Items.Clear();
 
@@ -70,11 +72,13 @@ namespace ImageAnnotationApp.Forms
                     item.Tag = project;
                     listView.Items.Add(item);
                 }
+                UpdateStatus(UIConstants.StatusMessages.Ready);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载项目列表失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载项目列表失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.LoadFailed);
             }
             finally
             {
@@ -91,22 +95,12 @@ namespace ImageAnnotationApp.Forms
                 {
                     if (_authService.CurrentUser?.Role == "Guest")
                     {
-                        MessageBox.Show("游客用户无法进入项目，请等待管理员审核。", "提示",
+                        MessageBox.Show("游客用户无法进入项目，请等待管理员审核。", UIConstants.MessageTitles.Warning,
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
-                    var queueListForm = new QueueListForm(project.Id, project.Name);
-                    var parentForm = this.ParentForm;
-                    if (parentForm is MainForm mainForm)
-                    {
-                        mainForm.Controls.Find("panelMain", true).FirstOrDefault()?.Controls.Clear();
-                        queueListForm.TopLevel = false;
-                        queueListForm.FormBorderStyle = FormBorderStyle.None;
-                        queueListForm.Dock = DockStyle.Fill;
-                        mainForm.Controls.Find("panelMain", true).FirstOrDefault()?.Controls.Add(queueListForm);
-                        queueListForm.Show();
-                    }
+                    NavigateTo(new QueueListForm(project.Id, project.Name));
                 }
             }
         }

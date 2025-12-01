@@ -119,4 +119,41 @@ public class UsersController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>
+    /// Update user role (Admin can change any user's role)
+    /// </summary>
+    [HttpPut("{id}/role")]
+    public async Task<ActionResult<UserDto>> UpdateUserRole(int id, [FromBody] UpdateUserRoleDto updateDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var user = await _context.Users.FindAsync(id);
+
+        if (user == null)
+        {
+            return NotFound(new { message = "用户不存在" });
+        }
+
+        // Prevent changing own role (admin shouldn't be able to demote themselves)
+        var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (user.Id == currentUserId)
+        {
+            return BadRequest(new { message = "不能修改自己的角色" });
+        }
+
+        user.Role = updateDto.Role;
+        await _context.SaveChangesAsync();
+
+        return Ok(new UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Role = user.Role,
+            CreatedAt = user.CreatedAt
+        });
+    }
 }

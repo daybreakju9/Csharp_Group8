@@ -1,24 +1,25 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    public partial class ProjectManagementForm : Form
+    public partial class ProjectManagementForm : BaseForm
     {
         private readonly ProjectService _projectService;
-        private ListView listView;
+        private ListView listView = null!;
 
         public ProjectManagementForm()
         {
             _projectService = new ProjectService();
             InitializeCustomComponents();
-            LoadProjectsAsync();
+            _ = LoadProjectsAsync();
         }
 
         private void InitializeCustomComponents()
         {
-            this.Text = "项目管理";
-            this.Size = new Size(1000, 700);
+            this.Text = UIConstants.FormatWindowTitle("项目管理");
+            this.Size = UIConstants.WindowSizes.Large;
 
             // ListView
             listView = new ListView
@@ -62,6 +63,7 @@ namespace ImageAnnotationApp.Forms
         {
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Loading);
                 listView.Items.Clear();
                 var projects = await _projectService.GetAllAsync();
 
@@ -76,11 +78,13 @@ namespace ImageAnnotationApp.Forms
                     item.Tag = project;
                     listView.Items.Add(item);
                 }
+                UpdateStatus(UIConstants.StatusMessages.Ready);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载项目列表失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载项目列表失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.LoadFailed);
             }
         }
 
@@ -93,20 +97,22 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Saving);
                 await _projectService.CreateAsync(new CreateProjectDto
                 {
                     Name = name,
                     Description = description
                 });
 
-                MessageBox.Show("项目创建成功", "成功",
+                MessageBox.Show(UIConstants.Messages.CreateSuccess, UIConstants.MessageTitles.Success,
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 await LoadProjectsAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"创建项目失败: {ex.Message}", "错误",
+                MessageBox.Show($"{UIConstants.Messages.CreateFailed}: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.CreateFailed);
             }
         }
 
@@ -114,7 +120,7 @@ namespace ImageAnnotationApp.Forms
         {
             if (listView.SelectedItems.Count == 0)
             {
-                MessageBox.Show("请选择要编辑的项目", "提示",
+                MessageBox.Show(UIConstants.Messages.SelectItem, UIConstants.MessageTitles.Warning,
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -129,20 +135,22 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Saving);
                 await _projectService.UpdateAsync(project.Id, new UpdateProjectDto
                 {
                     Name = name,
                     Description = description
                 });
 
-                MessageBox.Show("项目更新成功", "成功",
+                MessageBox.Show(UIConstants.Messages.UpdateSuccess, UIConstants.MessageTitles.Success,
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 await LoadProjectsAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"更新项目失败: {ex.Message}", "错误",
+                MessageBox.Show($"{UIConstants.Messages.UpdateFailed}: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.UpdateFailed);
             }
         }
 
@@ -150,7 +158,7 @@ namespace ImageAnnotationApp.Forms
         {
             if (listView.SelectedItems.Count == 0)
             {
-                MessageBox.Show("请选择要删除的项目", "提示",
+                MessageBox.Show(UIConstants.Messages.SelectItem, UIConstants.MessageTitles.Warning,
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -160,7 +168,7 @@ namespace ImageAnnotationApp.Forms
 
             var result = MessageBox.Show(
                 $"确定要删除项目 '{project.Name}' 吗？\n此操作将删除该项目及其所有队列和图片！",
-                "确认删除",
+                UIConstants.MessageTitles.Confirm,
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
@@ -168,15 +176,17 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Processing);
                 await _projectService.DeleteAsync(project.Id);
-                MessageBox.Show("项目删除成功", "成功",
+                MessageBox.Show(UIConstants.Messages.DeleteSuccess, UIConstants.MessageTitles.Success,
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 await LoadProjectsAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"删除项目失败: {ex.Message}", "错误",
+                MessageBox.Show($"{UIConstants.Messages.DeleteFailed}: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.DeleteFailed);
             }
         }
 
@@ -194,8 +204,20 @@ namespace ImageAnnotationApp.Forms
 
             var label = new Label { Text = prompt, Location = new Point(10, 20), AutoSize = true };
             var textBox = new TextBox { Location = new Point(10, 50), Size = new Size(360, 23), Text = defaultValue };
-            var btnOk = new Button { Text = "确定", DialogResult = DialogResult.OK, Location = new Point(200, 80), Size = new Size(80, 30) };
-            var btnCancel = new Button { Text = "取消", DialogResult = DialogResult.Cancel, Location = new Point(290, 80), Size = new Size(80, 30) };
+            var btnOk = new Button
+            {
+                Text = "确定",
+                DialogResult = DialogResult.OK,
+                Location = new Point(200, 80),
+                Size = UIConstants.ButtonSizes.Small
+            };
+            var btnCancel = new Button
+            {
+                Text = "取消",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(290, 80),
+                Size = UIConstants.ButtonSizes.Small
+            };
 
             form.Controls.AddRange(new Control[] { label, textBox, btnOk, btnCancel });
             form.AcceptButton = btnOk;

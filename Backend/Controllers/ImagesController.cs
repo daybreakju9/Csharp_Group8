@@ -130,61 +130,76 @@ public class ImagesController : ControllerBase
             return BadRequest(new { message = "文件夹名称不能为空" });
         }
 
-        var queue = await _context.Queues.FindAsync(queueId);
-        if (queue == null)
+        // Start transaction for data consistency
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            return NotFound(new { message = "队列不存在" });
+            var queue = await _context.Queues.FindAsync(queueId);
+            if (queue == null)
+            {
+                return NotFound(new { message = "队列不存在" });
+            }
+
+            // Create uploads directory if it doesn't exist
+            var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
+            Directory.CreateDirectory(uploadsPath);
+
+            // Save file
+            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+            var filePath = Path.Combine(uploadsPath, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Find existing images with the same ImageGroup (filename) to determine Order
+            var existingImagesInGroup = await _context.Images
+                .Where(i => i.QueueId == queueId && i.ImageGroup == file.FileName)
+                .ToListAsync();
+
+            int order = existingImagesInGroup.Count;
+
+            // Create image entity
+            var image = new Image
+            {
+                QueueId = queueId,
+                ImageGroup = file.FileName,
+                FolderName = folderName,
+                FileName = file.FileName,
+                FilePath = $"/uploads/{queueId}/{uniqueFileName}",
+                Order = order,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Images.Add(image);
+            await _context.SaveChangesAsync();
+
+            // Update queue total images count (count unique ImageGroups)
+            var totalGroups = await _context.Images
+                .Where(i => i.QueueId == queueId)
+                .Select(i => i.ImageGroup)
+                .Distinct()
+                .CountAsync();
+            queue.TotalImages = totalGroups;
+            await _context.SaveChangesAsync();
+
+            // Commit transaction
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                message = "上传成功",
+                imageId = image.Id,
+                fileName = file.FileName
+            });
         }
-
-        // Create uploads directory if it doesn't exist
-        var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
-        Directory.CreateDirectory(uploadsPath);
-
-        // Save file
-        var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-        var filePath = Path.Combine(uploadsPath, uniqueFileName);
-
-        using (var stream = new FileStream(filePath, FileMode.Create))
+        catch (Exception ex)
         {
-            await file.CopyToAsync(stream);
+            // Rollback transaction on error
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { message = "上传图片时发生错误", details = ex.Message });
         }
-
-        // Find existing images with the same ImageGroup (filename) to determine Order
-        var existingImagesInGroup = await _context.Images
-            .Where(i => i.QueueId == queueId && i.ImageGroup == file.FileName)
-            .ToListAsync();
-
-        int order = existingImagesInGroup.Count;
-
-        // Create image entity
-        var image = new Image
-        {
-            QueueId = queueId,
-            ImageGroup = file.FileName,
-            FolderName = folderName,
-            FileName = file.FileName,
-            FilePath = $"/uploads/{queueId}/{uniqueFileName}",
-            Order = order,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Images.Add(image);
-        await _context.SaveChangesAsync();
-
-        // Update queue total images count (count unique ImageGroups)
-        var totalGroups = await _context.Images
-            .Where(i => i.QueueId == queueId)
-            .Select(i => i.ImageGroup)
-            .Distinct()
-            .CountAsync();
-        queue.TotalImages = totalGroups;
-        await _context.SaveChangesAsync();
-
-        return Ok(new {
-            message = "上传成功",
-            imageId = image.Id,
-            fileName = file.FileName
-        });
     }
 
     [HttpPost("import")]
@@ -201,77 +216,95 @@ public class ImagesController : ControllerBase
             return BadRequest(new { message = "文件和文件夹名称数量不匹配" });
         }
 
-        var queue = await _context.Queues.FindAsync(queueId);
-        if (queue == null)
+        // Start transaction for data consistency
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            return NotFound(new { message = "队列不存在" });
-        }
-
-        // Create uploads directory if it doesn't exist
-        var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
-        Directory.CreateDirectory(uploadsPath);
-
-        // Group files by filename (same-name files from different folders)
-        var fileGroups = new Dictionary<string, List<(IFormFile file, string folderName, int index)>>();
-        
-        for (int i = 0; i < files.Count; i++)
-        {
-            var file = files[i];
-            var folderName = folderNames[i];
-            var fileName = file.FileName;
-
-            if (!fileGroups.ContainsKey(fileName))
+            var queue = await _context.Queues.FindAsync(queueId);
+            if (queue == null)
             {
-                fileGroups[fileName] = new List<(IFormFile, string, int)>();
+                return NotFound(new { message = "队列不存在" });
             }
 
-            fileGroups[fileName].Add((file, folderName, i));
-        }
+            // Create uploads directory if it doesn't exist
+            var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
+            Directory.CreateDirectory(uploadsPath);
 
-        var imageEntities = new List<Image>();
+            // Group files by filename (same-name files from different folders)
+            var fileGroups = new Dictionary<string, List<(IFormFile file, string folderName, int index)>>();
 
-        foreach (var group in fileGroups)
-        {
-            var fileName = group.Key;
-            var filesInGroup = group.Value;
-
-            int order = 0;
-            foreach (var (file, folderName, _) in filesInGroup)
+            for (int i = 0; i < files.Count; i++)
             {
-                // Save file
-                var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-                var filePath = Path.Combine(uploadsPath, uniqueFileName);
+                var file = files[i];
+                var folderName = folderNames[i];
+                var fileName = file.FileName;
 
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                if (!fileGroups.ContainsKey(fileName))
                 {
-                    await file.CopyToAsync(stream);
+                    fileGroups[fileName] = new List<(IFormFile, string, int)>();
                 }
 
-                // Create image entity
-                var image = new Image
-                {
-                    QueueId = queueId,
-                    ImageGroup = fileName,
-                    FolderName = folderName,
-                    FileName = file.FileName,
-                    FilePath = $"/uploads/{queueId}/{uniqueFileName}",
-                    Order = order++,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                imageEntities.Add(image);
+                fileGroups[fileName].Add((file, folderName, i));
             }
+
+            var imageEntities = new List<Image>();
+
+            foreach (var group in fileGroups)
+            {
+                var fileName = group.Key;
+                var filesInGroup = group.Value;
+
+                int order = 0;
+                foreach (var (file, folderName, _) in filesInGroup)
+                {
+                    // Save file
+                    var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+                    var filePath = Path.Combine(uploadsPath, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    // Create image entity
+                    var image = new Image
+                    {
+                        QueueId = queueId,
+                        ImageGroup = fileName,
+                        FolderName = folderName,
+                        FileName = file.FileName,
+                        FilePath = $"/uploads/{queueId}/{uniqueFileName}",
+                        Order = order++,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    imageEntities.Add(image);
+                }
+            }
+
+            _context.Images.AddRange(imageEntities);
+            await _context.SaveChangesAsync();
+
+            // Update queue total images (count unique ImageGroups)
+            var totalGroups = await _context.Images
+                .Where(i => i.QueueId == queueId)
+                .Select(i => i.ImageGroup)
+                .Distinct()
+                .CountAsync();
+            queue.TotalImages = totalGroups;
+            await _context.SaveChangesAsync();
+
+            // Commit transaction
+            await transaction.CommitAsync();
+
+            return Ok(new { message = $"成功导入 {imageEntities.Count} 张图片，共 {totalGroups} 个图片组" });
         }
-
-        _context.Images.AddRange(imageEntities);
-
-        // Update queue total images
-        var totalGroups = fileGroups.Count;
-        queue.TotalImages = totalGroups;
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = $"成功导入 {imageEntities.Count} 张图片，共 {totalGroups} 个图片组" });
+        catch (Exception ex)
+        {
+            // Rollback transaction on error
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { message = "导入图片时发生错误", details = ex.Message });
+        }
     }
 
     [HttpPost("import-single")]
@@ -288,61 +321,76 @@ public class ImagesController : ControllerBase
             return BadRequest(new { message = "文件夹名称不能为空" });
         }
 
-        var queue = await _context.Queues.FindAsync(queueId);
-        if (queue == null)
+        // Start transaction for data consistency
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            return NotFound(new { message = "队列不存在" });
+            var queue = await _context.Queues.FindAsync(queueId);
+            if (queue == null)
+            {
+                return NotFound(new { message = "队列不存在" });
+            }
+
+            // Create uploads directory if it doesn't exist
+            var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
+            Directory.CreateDirectory(uploadsPath);
+
+            // Save file
+            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+            var filePath = Path.Combine(uploadsPath, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Find existing images with the same ImageGroup (filename) to determine Order
+            var existingImagesInGroup = await _context.Images
+                .Where(i => i.QueueId == queueId && i.ImageGroup == file.FileName)
+                .ToListAsync();
+
+            int order = existingImagesInGroup.Count;
+
+            // Create image entity
+            var image = new Image
+            {
+                QueueId = queueId,
+                ImageGroup = file.FileName,
+                FolderName = folderName,
+                FileName = file.FileName,
+                FilePath = $"/uploads/{queueId}/{uniqueFileName}",
+                Order = order,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Images.Add(image);
+            await _context.SaveChangesAsync();
+
+            // Update queue total images count (count unique ImageGroups)
+            var totalGroups = await _context.Images
+                .Where(i => i.QueueId == queueId)
+                .Select(i => i.ImageGroup)
+                .Distinct()
+                .CountAsync();
+            queue.TotalImages = totalGroups;
+            await _context.SaveChangesAsync();
+
+            // Commit transaction
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                message = "上传成功",
+                imageId = image.Id,
+                fileName = file.FileName
+            });
         }
-
-        // Create uploads directory if it doesn't exist
-        var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
-        Directory.CreateDirectory(uploadsPath);
-
-        // Save file
-        var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-        var filePath = Path.Combine(uploadsPath, uniqueFileName);
-
-        using (var stream = new FileStream(filePath, FileMode.Create))
+        catch (Exception ex)
         {
-            await file.CopyToAsync(stream);
+            // Rollback transaction on error
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { message = "上传图片时发生错误", details = ex.Message });
         }
-
-        // Find existing images with the same ImageGroup (filename) to determine Order
-        var existingImagesInGroup = await _context.Images
-            .Where(i => i.QueueId == queueId && i.ImageGroup == file.FileName)
-            .ToListAsync();
-
-        int order = existingImagesInGroup.Count;
-
-        // Create image entity
-        var image = new Image
-        {
-            QueueId = queueId,
-            ImageGroup = file.FileName,
-            FolderName = folderName,
-            FileName = file.FileName,
-            FilePath = $"/uploads/{queueId}/{uniqueFileName}",
-            Order = order,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Images.Add(image);
-        await _context.SaveChangesAsync();
-        
-        // Update queue total images count (count unique ImageGroups)
-        var totalGroups = await _context.Images
-            .Where(i => i.QueueId == queueId)
-            .Select(i => i.ImageGroup)
-            .Distinct()
-            .CountAsync();
-        queue.TotalImages = totalGroups;
-        await _context.SaveChangesAsync();
-
-        return Ok(new { 
-            message = "上传成功", 
-            imageId = image.Id,
-            fileName = file.FileName 
-        });
     }
 
     [HttpGet("file")]

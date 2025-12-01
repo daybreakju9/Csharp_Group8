@@ -1,9 +1,10 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    public partial class UserManagementForm : Form
+    public partial class UserManagementForm : BaseForm
     {
         private readonly UserService _userService;
         private TabControl tabControl = null!;
@@ -14,13 +15,13 @@ namespace ImageAnnotationApp.Forms
         {
             _userService = new UserService();
             InitializeCustomComponents();
-            LoadUsersAsync();
+            _ = LoadUsersAsync();
         }
 
         private void InitializeCustomComponents()
         {
-            this.Text = "用户管理";
-            this.Size = new Size(1000, 700);
+            this.Text = UIConstants.FormatWindowTitle("用户管理");
+            this.Size = UIConstants.WindowSizes.Large;
 
             tabControl = new TabControl { Dock = DockStyle.Fill };
 
@@ -89,6 +90,7 @@ namespace ImageAnnotationApp.Forms
         {
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Loading);
                 listViewGuests.Items.Clear();
                 var guests = await _userService.GetGuestUsersAsync();
 
@@ -101,11 +103,13 @@ namespace ImageAnnotationApp.Forms
                     item.Tag = user;
                     listViewGuests.Items.Add(item);
                 }
+                UpdateStatus(UIConstants.StatusMessages.Ready);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载待审核游客失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载待审核游客失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.LoadFailed);
             }
         }
 
@@ -113,6 +117,7 @@ namespace ImageAnnotationApp.Forms
         {
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Loading);
                 listViewAllUsers.Items.Clear();
                 var users = await _userService.GetAllUsersAsync();
 
@@ -125,11 +130,13 @@ namespace ImageAnnotationApp.Forms
                     item.Tag = user;
                     listViewAllUsers.Items.Add(item);
                 }
+                UpdateStatus(UIConstants.StatusMessages.Ready);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载用户列表失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载用户列表失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.LoadFailed);
             }
         }
 
@@ -137,7 +144,7 @@ namespace ImageAnnotationApp.Forms
         {
             if (listViewGuests.SelectedItems.Count == 0)
             {
-                MessageBox.Show("请选择要批准的用户", "提示",
+                MessageBox.Show(UIConstants.Messages.SelectItem, UIConstants.MessageTitles.Warning,
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -147,15 +154,17 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Processing);
                 await _userService.ApproveUserAsync(user.Id);
-                MessageBox.Show($"用户 {user.Username} 已批准", "成功",
+                MessageBox.Show($"用户 {user.Username} 已批准", UIConstants.MessageTitles.Success,
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 await LoadUsersAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"批准用户失败: {ex.Message}", "错误",
+                MessageBox.Show($"批准用户失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("批准失败");
             }
         }
 
@@ -163,7 +172,7 @@ namespace ImageAnnotationApp.Forms
         {
             if (listViewGuests.SelectedItems.Count == 0)
             {
-                MessageBox.Show("请选择要拒绝的用户", "提示",
+                MessageBox.Show(UIConstants.Messages.SelectItem, UIConstants.MessageTitles.Warning,
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -173,7 +182,7 @@ namespace ImageAnnotationApp.Forms
 
             var result = MessageBox.Show(
                 $"确定要拒绝用户 '{user.Username}' 吗？",
-                "确认拒绝",
+                UIConstants.MessageTitles.Confirm,
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
@@ -181,15 +190,17 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Processing);
                 await _userService.DeleteUserAsync(user.Id);
-                MessageBox.Show($"用户 {user.Username} 已拒绝", "成功",
+                MessageBox.Show($"用户 {user.Username} 已拒绝", UIConstants.MessageTitles.Success,
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 await LoadUsersAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"拒绝用户失败: {ex.Message}", "错误",
+                MessageBox.Show($"拒绝用户失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("拒绝失败");
             }
         }
 

@@ -1,9 +1,10 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    public partial class QueueListForm : Form
+    public partial class QueueListForm : BaseForm
     {
         private readonly QueueService _queueService;
         private readonly int _projectId;
@@ -18,13 +19,13 @@ namespace ImageAnnotationApp.Forms
             _projectId = projectId;
             _projectName = projectName;
             InitializeCustomComponents();
-            LoadQueuesAsync();
+            _ = LoadQueuesAsync();
         }
 
         private void InitializeCustomComponents()
         {
-            this.Text = $"队列列表 - {_projectName}";
-            this.Size = new Size(900, 600);
+            this.Text = UIConstants.FormatWindowTitle("队列列表", _projectName);
+            this.Size = UIConstants.WindowSizes.Medium;
 
             // ListView
             listView = new ListView
@@ -62,6 +63,7 @@ namespace ImageAnnotationApp.Forms
         {
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Loading);
                 btnRefresh.Enabled = false;
                 listView.Items.Clear();
 
@@ -78,11 +80,13 @@ namespace ImageAnnotationApp.Forms
                     item.Tag = queue;
                     listView.Items.Add(item);
                 }
+                UpdateStatus(UIConstants.StatusMessages.Ready);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载队列列表失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载队列列表失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.LoadFailed);
             }
             finally
             {
@@ -102,106 +106,23 @@ namespace ImageAnnotationApp.Forms
                 var queue = listView.SelectedItems[0].Tag as Models.Queue;
                 if (queue == null)
                 {
-                    MessageBox.Show("无法获取队列信息", "错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("无法获取队列信息", UIConstants.MessageTitles.Error,
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                // 通过 Parent 向上查找 MainForm，或者从 Application.OpenForms 中查找
-                MainForm? mainForm = null;
-                
-                // 方法1: 通过 Parent 向上查找
-                Control? current = this.Parent;
-                while (current != null)
-                {
-                    if (current is MainForm mf)
-                    {
-                        mainForm = mf;
-                        break;
-                    }
-                    current = current.Parent;
-                }
-
-                // 方法2: 如果方法1失败，从 Application.OpenForms 中查找
-                if (mainForm == null)
-                {
-                    mainForm = Application.OpenForms.OfType<MainForm>().FirstOrDefault();
-                }
-
-                if (mainForm == null)
-                {
-                    MessageBox.Show("无法找到主窗体", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                var panel = mainForm.Controls.Find("panelMain", true).FirstOrDefault();
-                if (panel == null)
-                {
-                    MessageBox.Show("无法找到主面板", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                var imageSelectionForm = new ImageSelectionForm(queue.Id, queue.Name);
-                panel.Controls.Clear();
-                imageSelectionForm.TopLevel = false;
-                imageSelectionForm.FormBorderStyle = FormBorderStyle.None;
-                imageSelectionForm.Dock = DockStyle.Fill;
-                panel.Controls.Add(imageSelectionForm);
-                imageSelectionForm.Show();
+                NavigateTo(new ImageSelectionForm(queue.Id, queue.Name));
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"打开图片选择界面失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", "错误",
+                MessageBox.Show($"打开图片选择界面失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void BtnBack_Click(object? sender, EventArgs e)
         {
-            try
-            {
-                // 通过 Parent 向上查找 MainForm，或者从 Application.OpenForms 中查找
-                MainForm? mainForm = null;
-                
-                // 方法1: 通过 Parent 向上查找
-                Control? current = this.Parent;
-                while (current != null)
-                {
-                    if (current is MainForm mf)
-                    {
-                        mainForm = mf;
-                        break;
-                    }
-                    current = current.Parent;
-                }
-
-                // 方法2: 如果方法1失败，从 Application.OpenForms 中查找
-                if (mainForm == null)
-                {
-                    mainForm = Application.OpenForms.OfType<MainForm>().FirstOrDefault();
-                }
-
-                if (mainForm == null)
-                {
-                    MessageBox.Show("无法找到主窗体", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                var projectListForm = new ProjectListForm();
-                var panel = mainForm.Controls.Find("panelMain", true).FirstOrDefault();
-                if (panel != null)
-                {
-                    panel.Controls.Clear();
-                    projectListForm.TopLevel = false;
-                    projectListForm.FormBorderStyle = FormBorderStyle.None;
-                    projectListForm.Dock = DockStyle.Fill;
-                    panel.Controls.Add(projectListForm);
-                    projectListForm.Show();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"返回失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            NavigateBack();
         }
     }
 }

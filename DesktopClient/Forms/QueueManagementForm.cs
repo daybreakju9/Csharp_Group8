@@ -1,9 +1,10 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    public partial class QueueManagementForm : Form
+    public partial class QueueManagementForm : BaseForm
     {
         private readonly QueueService _queueService;
         private readonly ProjectService _projectService;
@@ -16,13 +17,13 @@ namespace ImageAnnotationApp.Forms
             _queueService = new QueueService();
             _projectService = new ProjectService();
             InitializeCustomComponents();
-            LoadProjectsAsync();
+            _ = LoadProjectsAsync();
         }
 
         private void InitializeCustomComponents()
         {
-            this.Text = "队列管理";
-            this.Size = new Size(1200, 700);
+            this.Text = UIConstants.FormatWindowTitle("队列管理");
+            this.Size = UIConstants.WindowSizes.Large;
 
             // 筛选面板
             var filterPanel = new Panel
@@ -65,24 +66,26 @@ namespace ImageAnnotationApp.Forms
             listView.Columns.Add("总图片数", 100);
             listView.Columns.Add("图片组数", 100);
             listView.Columns.Add("创建时间", 150);
+            listView.Columns.Add("操作提示", 150);
+            listView.DoubleClick += ListView_DoubleClick;
 
             // 工具栏
             var toolStrip = new ToolStrip();
             var btnAdd = new ToolStripButton("新建队列");
             var btnEdit = new ToolStripButton("编辑");
-            var btnImport = new ToolStripButton("导入图片");
+            var btnManage = new ToolStripButton("管理队列");
             var btnDelete = new ToolStripButton("删除");
             var btnRefresh = new ToolStripButton("刷新");
 
             btnAdd.Click += BtnAdd_ClickAsync;
             btnEdit.Click += BtnEdit_ClickAsync;
-            btnImport.Click += BtnImport_Click;
+            btnManage.Click += BtnManage_Click;
             btnDelete.Click += async (s, e) => await BtnDelete_ClickAsync();
             btnRefresh.Click += async (s, e) => await LoadQueuesAsync();
 
             toolStrip.Items.Add(btnAdd);
             toolStrip.Items.Add(btnEdit);
-            toolStrip.Items.Add(btnImport);
+            toolStrip.Items.Add(btnManage);
             toolStrip.Items.Add(btnDelete);
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.Add(btnRefresh);
@@ -97,21 +100,24 @@ namespace ImageAnnotationApp.Forms
         {
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Loading);
                 _allProjects = await _projectService.GetAllAsync();
                 cmbProjectFilter.Items.Clear();
                 cmbProjectFilter.Items.Add("全部项目");
-                
+
                 foreach (var project in _allProjects)
                 {
                     cmbProjectFilter.Items.Add(project.Name);
                 }
-                
+
                 cmbProjectFilter.SelectedIndex = 0;
+                UpdateStatus(UIConstants.StatusMessages.Ready);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载项目列表失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载项目列表失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.LoadFailed);
             }
         }
 
@@ -119,14 +125,15 @@ namespace ImageAnnotationApp.Forms
         {
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Loading);
                 listView.Items.Clear();
-                
+
                 int? projectId = null;
                 if (cmbProjectFilter.SelectedIndex > 0 && _allProjects.Count > 0)
                 {
                     projectId = _allProjects[cmbProjectFilter.SelectedIndex - 1].Id;
                 }
-                
+
                 var queues = await _queueService.GetAllAsync(projectId);
 
                 foreach (var queue in queues)
@@ -139,14 +146,17 @@ namespace ImageAnnotationApp.Forms
                     var groupCount = queue.ImageCount > 0 ? queue.TotalImages / queue.ImageCount : 0;
                     item.SubItems.Add(groupCount.ToString());
                     item.SubItems.Add(queue.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
+                    item.SubItems.Add("双击管理");
                     item.Tag = queue;
                     listView.Items.Add(item);
                 }
+                UpdateStatus(UIConstants.StatusMessages.Ready);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载队列列表失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载队列列表失败: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.LoadFailed);
             }
         }
 
@@ -156,7 +166,7 @@ namespace ImageAnnotationApp.Forms
             {
                 if (_allProjects.Count == 0)
                 {
-                    MessageBox.Show("请先创建项目", "提示",
+                    MessageBox.Show("请先创建项目", UIConstants.MessageTitles.Warning,
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -169,7 +179,7 @@ namespace ImageAnnotationApp.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"创建队列失败: {ex.Message}", "错误",
+                MessageBox.Show($"{UIConstants.Messages.CreateFailed}: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -178,7 +188,7 @@ namespace ImageAnnotationApp.Forms
         {
             if (listView.SelectedItems.Count == 0)
             {
-                MessageBox.Show("请选择要编辑的队列", "提示",
+                MessageBox.Show(UIConstants.Messages.SelectItem, UIConstants.MessageTitles.Warning,
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -196,7 +206,7 @@ namespace ImageAnnotationApp.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"更新队列失败: {ex.Message}", "错误",
+                MessageBox.Show($"{UIConstants.Messages.UpdateFailed}: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -259,14 +269,14 @@ namespace ImageAnnotationApp.Forms
             {
                 Text = "确定",
                 Location = new Point(200, 150),
-                Size = new Size(80, 30)
+                Size = UIConstants.ButtonSizes.Small
             };
             var btnCancel = new Button
             {
                 Text = "取消",
                 DialogResult = DialogResult.Cancel,
                 Location = new Point(290, 150),
-                Size = new Size(80, 30)
+                Size = UIConstants.ButtonSizes.Small
             };
 
             bool success = false;
@@ -276,6 +286,7 @@ namespace ImageAnnotationApp.Forms
                 {
                     try
                     {
+                        UpdateStatus(UIConstants.StatusMessages.Saving);
                         if (existingQueue == null)
                         {
                             await _queueService.CreateAsync(new CreateQueueDto
@@ -284,7 +295,7 @@ namespace ImageAnnotationApp.Forms
                                 Name = txtName.Text.Trim(),
                                 ImageCount = (int)numImageCount.Value
                             });
-                            MessageBox.Show("队列创建成功", "成功",
+                            MessageBox.Show(UIConstants.Messages.CreateSuccess, UIConstants.MessageTitles.Success,
                                 MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
                         else
@@ -294,22 +305,24 @@ namespace ImageAnnotationApp.Forms
                                 Name = txtName.Text.Trim(),
                                 ImageCount = (int)numImageCount.Value
                             });
-                            MessageBox.Show("队列更新成功", "成功",
+                            MessageBox.Show(UIConstants.Messages.UpdateSuccess, UIConstants.MessageTitles.Success,
                                 MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
                         success = true;
                         form.DialogResult = DialogResult.OK;
                         form.Close();
+                        UpdateStatus(UIConstants.StatusMessages.Ready);
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"操作失败: {ex.Message}", "错误",
+                        MessageBox.Show($"操作失败: {ex.Message}", UIConstants.MessageTitles.Error,
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        UpdateStatus(UIConstants.Messages.SaveFailed);
                     }
                 }
                 else
                 {
-                    MessageBox.Show("请填写完整信息", "提示",
+                    MessageBox.Show(UIConstants.Messages.FillRequired, UIConstants.MessageTitles.Warning,
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             };
@@ -334,11 +347,11 @@ namespace ImageAnnotationApp.Forms
             return null;
         }
 
-        private void BtnImport_Click(object? sender, EventArgs e)
+        private void BtnManage_Click(object? sender, EventArgs e)
         {
             if (listView.SelectedItems.Count == 0)
             {
-                MessageBox.Show("请选择要导入图片的队列", "提示",
+                MessageBox.Show(UIConstants.Messages.SelectItem, UIConstants.MessageTitles.Warning,
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -346,16 +359,39 @@ namespace ImageAnnotationApp.Forms
             var queue = listView.SelectedItems[0].Tag as Models.Queue;
             if (queue == null) return;
 
-            var importForm = new ImageImportForm(queue);
-            importForm.ShowDialog();
-            LoadQueuesAsync();
+            OpenQueueDetailManagement(queue);
+        }
+
+        private void ListView_DoubleClick(object? sender, EventArgs e)
+        {
+            if (listView.SelectedItems.Count == 0) return;
+
+            var queue = listView.SelectedItems[0].Tag as Models.Queue;
+            if (queue == null) return;
+
+            OpenQueueDetailManagement(queue);
+        }
+
+        private void OpenQueueDetailManagement(Models.Queue queue)
+        {
+            try
+            {
+                var detailForm = new QueueDetailManagementForm(queue);
+                detailForm.ShowDialog();
+                _ = LoadQueuesAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"打开队列管理界面失败: {ex.Message}", UIConstants.MessageTitles.Error,
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private async Task BtnDelete_ClickAsync()
         {
             if (listView.SelectedItems.Count == 0)
             {
-                MessageBox.Show("请选择要删除的队列", "提示",
+                MessageBox.Show(UIConstants.Messages.SelectItem, UIConstants.MessageTitles.Warning,
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -365,7 +401,7 @@ namespace ImageAnnotationApp.Forms
 
             var result = MessageBox.Show(
                 $"确定要删除队列 '{queue.Name}' 吗？",
-                "确认删除",
+                UIConstants.MessageTitles.Confirm,
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
@@ -373,15 +409,17 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
+                UpdateStatus(UIConstants.StatusMessages.Processing);
                 await _queueService.DeleteAsync(queue.Id);
-                MessageBox.Show("队列删除成功", "成功",
+                MessageBox.Show(UIConstants.Messages.DeleteSuccess, UIConstants.MessageTitles.Success,
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 await LoadQueuesAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"删除队列失败: {ex.Message}", "错误",
+                MessageBox.Show($"{UIConstants.Messages.DeleteFailed}: {ex.Message}", UIConstants.MessageTitles.Error,
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus(UIConstants.Messages.DeleteFailed);
             }
         }
 

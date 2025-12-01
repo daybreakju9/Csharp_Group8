@@ -1,12 +1,15 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Controls;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    public partial class ImageSelectionForm : Form
+    public partial class ImageSelectionForm : BaseForm
     {
         private readonly ImageService _imageService;
         private readonly SelectionService _selectionService;
+        private readonly ImageCacheService _cacheService;
         private readonly int _queueId;
         private readonly string _queueName;
         private ImageGroup? _currentGroup;
@@ -22,6 +25,7 @@ namespace ImageAnnotationApp.Forms
         {
             _imageService = new ImageService();
             _selectionService = new SelectionService();
+            _cacheService = ImageCacheService.Instance;
             _queueId = queueId;
             _queueName = queueName;
             InitializeCustomComponents();
@@ -31,7 +35,7 @@ namespace ImageAnnotationApp.Forms
 
         private void InitializeCustomComponents()
         {
-            this.Text = $"图片选择 - {_queueName}";
+            this.Text = UIConstants.FormatWindowTitle("图片选择", _queueName);
             this.Size = new Size(1000, 700);
             this.StartPosition = FormStartPosition.CenterParent;
 
@@ -62,12 +66,13 @@ namespace ImageAnnotationApp.Forms
                 Text = "加载中..."
             };
 
-            // 图片显示面板
+            // 图片显示面板 - 启用双缓冲
             panelImages = new Panel
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true
             };
+            panelImages.DoubleBuffered(true);
 
             // 底部控制面板
             var panelBottom = new Panel
@@ -257,6 +262,7 @@ namespace ImageAnnotationApp.Forms
             {
                 panelImages.Controls.Clear();
                 lblProgress.Text = "加载中...";
+                UpdateStatus("正在加载图片组...");
 
                 // 获取进度
                 var progress = await _selectionService.GetProgressAsync(_queueId);
@@ -278,13 +284,33 @@ namespace ImageAnnotationApp.Forms
                     return;
                 }
 
+                UpdateStatus($"正在显示图片组: {_currentGroup.GroupName}");
+
+                // 预加载图片到缓存（后台任务）
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var imagePaths = _currentGroup.Images.Select(img => img.FilePath).ToArray();
+                        await _cacheService.PreloadImagesAsync(imagePaths, _imageService);
+                        System.Diagnostics.Debug.WriteLine($"预加载完成，共 {imagePaths.Length} 张图片");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"预加载失败: {ex.Message}");
+                    }
+                });
+
                 // 显示图片
                 DisplayImages();
+
+                UpdateStatus($"已加载图片组: {_currentGroup.GroupName}");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"加载图片失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("加载失败");
             }
         }
 
@@ -360,7 +386,7 @@ namespace ImageAnnotationApp.Forms
                     BorderStyle = BorderStyle.None
                 };
 
-                var pictureBox = new PictureBox
+                var pictureBox = new OptimizedPictureBox
                 {
                     Size = new Size(imageSize, imageSize),
                     Location = new Point(0, 0),
@@ -398,32 +424,53 @@ namespace ImageAnnotationApp.Forms
             try
             {
                 System.Diagnostics.Debug.WriteLine($"开始加载图片: {imagePath}");
-                
-                var imageData = await _imageService.GetImageDataAsync(imagePath);
-                if (imageData == null || imageData.Length == 0)
+
+                // 先检查缓存
+                var cachedData = _cacheService.GetImageData(imagePath);
+                byte[]? imageData;
+
+                if (cachedData != null)
                 {
-                    pictureBox.BackColor = Color.LightGray;
-                    pictureBox.Text = "图片数据为空";
-                    System.Diagnostics.Debug.WriteLine($"图片数据为空: {imagePath}");
-                    return;
+                    System.Diagnostics.Debug.WriteLine($"从缓存加载图片: {imagePath}");
+                    imageData = cachedData;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"从服务器下载图片: {imagePath}");
+                    imageData = await _imageService.GetImageDataAsync(imagePath);
+
+                    if (imageData == null || imageData.Length == 0)
+                    {
+                        pictureBox.BackColor = Color.LightGray;
+                        System.Diagnostics.Debug.WriteLine($"图片数据为空: {imagePath}");
+                        return;
+                    }
+
+                    // 添加到缓存
+                    _cacheService.AddImageData(imagePath, imageData);
+                    System.Diagnostics.Debug.WriteLine($"图片已添加到缓存: {imagePath}, 大小: {imageData.Length} 字节");
                 }
 
-                System.Diagnostics.Debug.WriteLine($"图片数据大小: {imageData.Length} 字节");
+                // 释放旧的图片资源
+                if (pictureBox.Image != null)
+                {
+                    var oldImage = pictureBox.Image;
+                    pictureBox.Image = null;
+                    oldImage.Dispose();
+                }
 
-                // 使用 MemoryStream 加载图片
-                // 注意：对于 MemoryStream，数据已经在内存中，不需要保持流打开
+                // 创建图片副本以避免GDI+错误
+                // 不直接使用MemoryStream，而是创建Bitmap副本
                 using (var ms = new MemoryStream(imageData))
                 {
-                    // 释放旧的图片资源
-                    if (pictureBox.Image != null)
+                    using (var tempImage = System.Drawing.Image.FromStream(ms))
                     {
-                        pictureBox.Image.Dispose();
+                        // 创建新的Bitmap作为副本
+                        var bitmap = new Bitmap(tempImage);
+                        pictureBox.Image = bitmap;
                     }
-                    
-                    // 从流中加载图片
-                    pictureBox.Image = System.Drawing.Image.FromStream(ms, false, false);
                 }
-                
+
                 System.Diagnostics.Debug.WriteLine($"图片加载成功: {imagePath}");
             }
             catch (Exception ex)
@@ -431,7 +478,6 @@ namespace ImageAnnotationApp.Forms
                 // 加载失败时显示占位符和错误信息
                 pictureBox.BackColor = Color.LightGray;
                 var errorMsg = ex.Message.Length > 50 ? ex.Message.Substring(0, 50) + "..." : ex.Message;
-                pictureBox.Text = $"加载失败\n{errorMsg}";
                 System.Diagnostics.Debug.WriteLine($"图片加载失败: {imagePath}, 错误: {ex.Message}\n堆栈: {ex.StackTrace}");
             }
         }
@@ -493,7 +539,9 @@ namespace ImageAnnotationApp.Forms
             try
             {
                 btnSubmit.Enabled = false;
+                btnBack.Enabled = false;
                 btnSubmit.Text = "提交中...";
+                UpdateStatus("正在提交选择...");
 
                 var dto = new CreateSelectionDto
                 {
@@ -504,6 +552,8 @@ namespace ImageAnnotationApp.Forms
 
                 await _selectionService.CreateAsync(dto);
 
+                UpdateStatus("提交成功，正在加载下一组...");
+
                 // 加载下一组
                 await LoadNextGroupAsync();
             }
@@ -511,27 +561,52 @@ namespace ImageAnnotationApp.Forms
             {
                 MessageBox.Show($"提交失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("提交失败");
             }
             finally
             {
                 btnSubmit.Enabled = true;
+                btnBack.Enabled = true;
                 btnSubmit.Text = "提交选择";
             }
         }
 
         private void BtnBack_Click(object? sender, EventArgs e)
         {
-            if (this.FindForm() is MainForm mainForm)
+            // 使用NavigationManager返回上一层
+            NavigateBack();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                var panel = mainForm.Controls.Find("panelMain", true).FirstOrDefault();
-                panel?.Controls.Clear();
-                var queueListForm = new QueueListForm(0, "所有项目"); // 简化版，实际应该传递正确的项目ID
-                queueListForm.TopLevel = false;
-                queueListForm.FormBorderStyle = FormBorderStyle.None;
-                queueListForm.Dock = DockStyle.Fill;
-                panel?.Controls.Add(queueListForm);
-                queueListForm.Show();
+                // 清理定时器资源
+                if (_resizeTimer != null)
+                {
+                    _resizeTimer.Stop();
+                    _resizeTimer.Dispose();
+                    _resizeTimer = null;
+                }
+
+                // 释放所有PictureBox中的图片资源
+                foreach (Control control in panelImages.Controls)
+                {
+                    if (control is Panel imagePanel)
+                    {
+                        foreach (Control child in imagePanel.Controls)
+                        {
+                            if (child is PictureBox pb && pb.Image != null)
+                            {
+                                pb.Image.Dispose();
+                                pb.Image = null;
+                            }
+                        }
+                    }
+                }
             }
+
+            base.Dispose(disposing);
         }
     }
 }

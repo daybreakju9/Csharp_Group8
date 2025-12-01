@@ -36,105 +36,122 @@ public class SelectionsController : ControllerBase
 
         var userId = GetUserId();
 
-        // Check if user is a Guest (not allowed to participate in annotation)
-        var user = await _context.Users.FindAsync(userId);
-        if (user == null)
+        // Start a database transaction for data consistency
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            return Unauthorized(new { message = "用户不存在" });
-        }
+            // Check if user is a Guest (not allowed to participate in annotation)
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                return Unauthorized(new { message = "用户不存在" });
+            }
 
-        if (user.Role == "Guest")
-        {
-            return Forbid();  // 403 Forbidden - Guest users cannot annotate
-        }
+            if (user.Role == "Guest")
+            {
+                return Forbid();  // 403 Forbidden - Guest users cannot annotate
+            }
 
-        // Check if queue exists
-        var queueExists = await _context.Queues.AnyAsync(q => q.Id == createDto.QueueId);
-        if (!queueExists)
-        {
-            return BadRequest(new { message = "队列不存在" });
-        }
+            // Check if queue exists
+            var queueExists = await _context.Queues.AnyAsync(q => q.Id == createDto.QueueId);
+            if (!queueExists)
+            {
+                return BadRequest(new { message = "队列不存在" });
+            }
 
-        // Check if image exists
-        var image = await _context.Images.FindAsync(createDto.SelectedImageId);
-        if (image == null || image.QueueId != createDto.QueueId || image.ImageGroup != createDto.ImageGroup)
-        {
-            return BadRequest(new { message = "图片不存在或不属于指定队列" });
-        }
+            // Check if image exists
+            var image = await _context.Images.FindAsync(createDto.SelectedImageId);
+            if (image == null || image.QueueId != createDto.QueueId || image.ImageGroup != createDto.ImageGroup)
+            {
+                return BadRequest(new { message = "图片不存在或不属于指定队列" });
+            }
 
-        // Check if user has already selected this image group
-        var existingSelection = await _context.SelectionRecords
-            .FirstOrDefaultAsync(s => s.QueueId == createDto.QueueId 
-                                   && s.UserId == userId 
-                                   && s.ImageGroup == createDto.ImageGroup);
+            // Double-check if user has already selected this image group (prevent race condition)
+            var existingSelection = await _context.SelectionRecords
+                .FirstOrDefaultAsync(s => s.QueueId == createDto.QueueId
+                                       && s.UserId == userId
+                                       && s.ImageGroup == createDto.ImageGroup);
 
-        if (existingSelection != null)
-        {
-            return BadRequest(new { message = "您已经选择过这个图片组" });
-        }
+            if (existingSelection != null)
+            {
+                // Selection already exists, rollback transaction
+                await transaction.RollbackAsync();
+                return BadRequest(new { message = "您已经选择过这个图片组" });
+            }
 
-        // Create selection record
-        var selection = new SelectionRecord
-        {
-            QueueId = createDto.QueueId,
-            UserId = userId,
-            ImageGroup = createDto.ImageGroup,
-            SelectedImageId = createDto.SelectedImageId,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.SelectionRecords.Add(selection);
-
-        // Update or create user progress
-        var progress = await _context.UserProgresses
-            .FirstOrDefaultAsync(p => p.QueueId == createDto.QueueId && p.UserId == userId);
-
-        if (progress == null)
-        {
-            // Get total groups for this queue
-            var totalGroups = await _context.Images
-                .Where(i => i.QueueId == createDto.QueueId)
-                .Select(i => i.ImageGroup)
-                .Distinct()
-                .CountAsync();
-
-            progress = new UserProgress
+            // Create selection record
+            var selection = new SelectionRecord
             {
                 QueueId = createDto.QueueId,
                 UserId = userId,
-                CompletedGroups = 1,
-                TotalGroups = totalGroups,
-                LastUpdated = DateTime.UtcNow
+                ImageGroup = createDto.ImageGroup,
+                SelectedImageId = createDto.SelectedImageId,
+                CreatedAt = DateTime.UtcNow
             };
-            _context.UserProgresses.Add(progress);
-        }
-        else
-        {
-            progress.CompletedGroups++;
-            progress.LastUpdated = DateTime.UtcNow;
-        }
 
-        await _context.SaveChangesAsync();
+            _context.SelectionRecords.Add(selection);
 
-        var selectionDto = await _context.SelectionRecords
-            .Include(s => s.User)
-            .Include(s => s.SelectedImage)
-            .Where(s => s.Id == selection.Id)
-            .Select(s => new SelectionDto
+            // Update or create user progress
+            var progress = await _context.UserProgresses
+                .FirstOrDefaultAsync(p => p.QueueId == createDto.QueueId && p.UserId == userId);
+
+            if (progress == null)
             {
-                Id = s.Id,
-                QueueId = s.QueueId,
-                UserId = s.UserId,
-                Username = s.User.Username,
-                ImageGroup = s.ImageGroup,
-                SelectedImageId = s.SelectedImageId,
-                SelectedImagePath = s.SelectedImage.FilePath,
-                SelectedFolderName = s.SelectedImage.FolderName,
-                CreatedAt = s.CreatedAt
-            })
-            .FirstAsync();
+                // Get total groups for this queue
+                var totalGroups = await _context.Images
+                    .Where(i => i.QueueId == createDto.QueueId)
+                    .Select(i => i.ImageGroup)
+                    .Distinct()
+                    .CountAsync();
 
-        return CreatedAtAction(nameof(GetSelection), new { id = selection.Id }, selectionDto);
+                progress = new UserProgress
+                {
+                    QueueId = createDto.QueueId,
+                    UserId = userId,
+                    CompletedGroups = 1,
+                    TotalGroups = totalGroups,
+                    LastUpdated = DateTime.UtcNow
+                };
+                _context.UserProgresses.Add(progress);
+            }
+            else
+            {
+                progress.CompletedGroups++;
+                progress.LastUpdated = DateTime.UtcNow;
+            }
+
+            // Save all changes within transaction
+            await _context.SaveChangesAsync();
+
+            // Commit transaction
+            await transaction.CommitAsync();
+
+            var selectionDto = await _context.SelectionRecords
+                .Include(s => s.User)
+                .Include(s => s.SelectedImage)
+                .Where(s => s.Id == selection.Id)
+                .Select(s => new SelectionDto
+                {
+                    Id = s.Id,
+                    QueueId = s.QueueId,
+                    UserId = s.UserId,
+                    Username = s.User.Username,
+                    ImageGroup = s.ImageGroup,
+                    SelectedImageId = s.SelectedImageId,
+                    SelectedImagePath = s.SelectedImage.FilePath,
+                    SelectedFolderName = s.SelectedImage.FolderName,
+                    CreatedAt = s.CreatedAt
+                })
+                .FirstAsync();
+
+            return CreatedAtAction(nameof(GetSelection), new { id = selection.Id }, selectionDto);
+        }
+        catch (Exception ex)
+        {
+            // Rollback transaction on error
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { message = "创建选择记录时发生错误", details = ex.Message });
+        }
     }
 
     [HttpGet("{id}")]

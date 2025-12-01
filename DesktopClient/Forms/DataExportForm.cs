@@ -1,9 +1,10 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    public partial class DataExportForm : Form
+    public partial class DataExportForm : BaseForm
     {
         private readonly ExportService _exportService;
         private readonly QueueService _queueService;
@@ -26,8 +27,8 @@ namespace ImageAnnotationApp.Forms
 
         private void InitializeCustomComponents()
         {
-            this.Text = "数据导出";
-            this.Size = new Size(1200, 700);
+            this.Text = UIConstants.FormatWindowTitle("数据导出");
+            this.Size = UIConstants.WindowSizes.Large;
 
             // 导出选择记录面板
             var panelSelections = new Panel
@@ -357,19 +358,23 @@ namespace ImageAnnotationApp.Forms
             {
                 btnExportSelections.Enabled = false;
                 btnExportSelections.Text = "导出中...";
+                UpdateStatus("正在导出选择记录...");
 
                 var queue = _allQueues[cmbQueueFilter.SelectedIndex];
                 var format = cmbFormat.SelectedItem?.ToString()?.ToLower() ?? "csv";
 
                 var data = await _exportService.ExportSelectionsAsync(queue.Id, format);
 
-                var fileName = $"selections_{queue.Id}_{DateTime.Now:yyyyMMdd_HHmmss}.{format}";
+                var fileName = $"selections_{queue.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.{format}";
                 _exportService.SaveToFile(data, fileName);
+
+                UpdateStatus("导出完成");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"导出选择记录失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("导出失败");
             }
             finally
             {
@@ -384,6 +389,7 @@ namespace ImageAnnotationApp.Forms
             {
                 btnExportProgress.Enabled = false;
                 btnExportProgress.Text = "导出中...";
+                UpdateStatus("正在导出进度数据...");
 
                 var format = cmbProgressFormat.SelectedItem?.ToString()?.ToLower() ?? "csv";
 
@@ -391,11 +397,14 @@ namespace ImageAnnotationApp.Forms
 
                 var fileName = $"progress_{(queueId.HasValue ? queueId.Value.ToString() : "all")}_{DateTime.Now:yyyyMMdd_HHmmss}.{format}";
                 _exportService.SaveToFile(data, fileName);
+
+                UpdateStatus("导出完成");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"导出进度数据失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("导出失败");
             }
             finally
             {

@@ -23,6 +23,8 @@ namespace ImageAnnotationApp.Forms
         private Dictionary<string, FolderData> _folders = new();
         private bool _isUploading = false;
         private List<Models.Image> _uploadedImages = new();
+        private int _folderListSortColumn = 0;
+        private SortOrder _folderListSortOrder = SortOrder.Ascending;
 
         private class FolderData
         {
@@ -116,6 +118,7 @@ namespace ImageAnnotationApp.Forms
             listViewFolders.Columns.Add("文件夹名称", 200);
             listViewFolders.Columns.Add("文件数量", 100);
             listViewFolders.Columns.Add("文件列表", 600);
+            listViewFolders.ColumnClick += ListViewFolders_ColumnClick;
 
             panelFolders.Controls.Add(listViewFolders);
             panelFolders.Controls.Add(toolStripFolders);
@@ -361,6 +364,19 @@ namespace ImageAnnotationApp.Forms
             var oldFolderName = listViewFolders.SelectedItems[0].Text;
             if (!_folders.ContainsKey(oldFolderName))
                 return;
+
+            // 检查是否有已上传的文件
+            if (_folders[oldFolderName].UploadedFileNames.Count > 0)
+            {
+                MessageBox.Show(
+                    "该文件夹包含已上传的文件，无法重命名。\n\n" +
+                    "已上传的文件在服务器中保留原文件夹名称。\n" +
+                    "如需更改，请删除此文件夹后重新创建。",
+                    "无法重命名",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
 
             var newFolderName = PromptInput("新文件夹名称:", "重命名文件夹", oldFolderName);
             if (string.IsNullOrWhiteSpace(newFolderName))
@@ -798,6 +814,27 @@ namespace ImageAnnotationApp.Forms
             lblUploadedCount.Text = $"已上传: {groupCount} 个图片组, 共 {_uploadedImages.Count} 张图片";
         }
 
+        private void ListViewFolders_ColumnClick(object? sender, ColumnClickEventArgs e)
+        {
+            // 如果点击的是同一列，则切换排序方向
+            if (e.Column == _folderListSortColumn)
+            {
+                _folderListSortOrder = _folderListSortOrder == SortOrder.Ascending
+                    ? SortOrder.Descending
+                    : SortOrder.Ascending;
+            }
+            else
+            {
+                // 点击不同列，默认升序
+                _folderListSortColumn = e.Column;
+                _folderListSortOrder = SortOrder.Ascending;
+            }
+
+            // 应用排序
+            listViewFolders.ListViewItemSorter = new ListViewItemComparer(_folderListSortColumn, _folderListSortOrder);
+            listViewFolders.Sort();
+        }
+
         private string? PromptInput(string prompt, string title, string defaultValue = "")
         {
             var form = new Form
@@ -820,6 +857,51 @@ namespace ImageAnnotationApp.Forms
             form.CancelButton = btnCancel;
 
             return form.ShowDialog() == DialogResult.OK ? textBox.Text : null;
+        }
+    }
+
+    // ListView列排序比较器
+    public class ListViewItemComparer : System.Collections.IComparer
+    {
+        private readonly int _column;
+        private readonly SortOrder _sortOrder;
+
+        public ListViewItemComparer(int column, SortOrder sortOrder)
+        {
+            _column = column;
+            _sortOrder = sortOrder;
+        }
+
+        public int Compare(object? x, object? y)
+        {
+            if (x is not ListViewItem itemX || y is not ListViewItem itemY)
+                return 0;
+
+            string textX = _column < itemX.SubItems.Count ? itemX.SubItems[_column].Text : "";
+            string textY = _column < itemY.SubItems.Count ? itemY.SubItems[_column].Text : "";
+
+            int result;
+
+            // 第二列（文件数量）按数字排序
+            if (_column == 1)
+            {
+                if (int.TryParse(textX, out int numX) && int.TryParse(textY, out int numY))
+                {
+                    result = numX.CompareTo(numY);
+                }
+                else
+                {
+                    result = string.Compare(textX, textY, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            else
+            {
+                // 其他列按字符串排序
+                result = string.Compare(textX, textY, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // 根据排序方向返回结果
+            return _sortOrder == SortOrder.Descending ? -result : result;
         }
     }
 }

@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 using ImageAnnotationApp.Services;
+using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
@@ -8,6 +9,9 @@ namespace ImageAnnotationApp.Forms
     {
         private readonly AuthService _authService;
         private readonly ContextMenuStrip _adminShortcutMenu;
+        private NavigationManager _navigationManager = null!;
+
+        public NavigationManager Navigation => _navigationManager;
 
         public MainForm()
         {
@@ -19,6 +23,9 @@ namespace ImageAnnotationApp.Forms
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            // 初始化导航管理器
+            _navigationManager = new NavigationManager(this, panelMain, lblStatus);
+
             // 设置用户信息
             if (_authService.CurrentUser != null)
             {
@@ -63,27 +70,27 @@ namespace ImageAnnotationApp.Forms
 
         private void menuProjects_Click(object sender, EventArgs e)
         {
-            LoadForm(new ProjectListForm());
+            _navigationManager.NavigateToRoot(new ProjectListForm());
         }
 
         private void menuAdminProjects_Click(object sender, EventArgs e)
         {
-            LoadForm(new ProjectManagementForm());
+            _navigationManager.NavigateToRoot(new ProjectManagementForm());
         }
 
         private void menuAdminQueues_Click(object sender, EventArgs e)
         {
-            LoadForm(new QueueManagementForm());
+            _navigationManager.NavigateToRoot(new QueueManagementForm());
         }
 
         private void menuAdminUsers_Click(object sender, EventArgs e)
         {
-            LoadForm(new UserManagementForm());
+            _navigationManager.NavigateToRoot(new UserManagementForm());
         }
 
         private void menuAdminExport_Click(object sender, EventArgs e)
         {
-            LoadForm(new DataExportForm());
+            _navigationManager.NavigateToRoot(new DataExportForm());
         }
 
         private void btnUserEntry_Click(object sender, EventArgs e)
@@ -124,21 +131,8 @@ namespace ImageAnnotationApp.Forms
 
         private void LoadForm(Form form)
         {
-            try
-            {
-                panelMain.Controls.Clear();
-                form.TopLevel = false;
-                form.FormBorderStyle = FormBorderStyle.None;
-                form.Dock = DockStyle.Fill;
-                panelMain.Controls.Add(form);
-                form.Show();
-                lblStatus.Text = $"已加载: {form.Text}";
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"加载窗体失败: {ex.Message}", "错误",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            // 已废弃，请使用 NavigationManager.NavigateTo 或 NavigateToRoot
+            _navigationManager?.NavigateTo(form, addToStack: false);
         }
 
         private ContextMenuStrip BuildAdminShortcutMenu()
