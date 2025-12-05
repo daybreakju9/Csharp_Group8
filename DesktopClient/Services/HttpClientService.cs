@@ -250,5 +250,19 @@ namespace ImageAnnotationApp.Services
                 throw new Exception($"GET 请求失败: {ex.Message}", ex);
             }
         }
+
+        public async Task<HttpResponseMessage> RawPostAsync(string endpoint, object data)
+        {
+            var json = JsonSerializer.Serialize(data);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+            var url = $"{BaseUrl}/{endpoint}";
+
+            var response = await _httpClient.PostAsync(url, content);
+
+            return response;
+        }
+
+
     }
 }

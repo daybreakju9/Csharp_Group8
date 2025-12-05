@@ -52,3 +52,6 @@ package-lock.json
 frontend/package-lock.json
 Backend/package-lock.json
 
+# SQLite database (should NOT be committed)
+Backend/*.db
+*.db

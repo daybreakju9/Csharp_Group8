@@ -61,24 +61,40 @@ namespace ImageAnnotationApp.Services
         {
             try
             {
-                var response = await _httpClient.PostAsync<AuthResponse>("auth/register", registerDto);
-                if (response != null)
+                var httpResponse = await _httpClient.RawPostAsync("auth/register", registerDto);
+
+                var content = await httpResponse.Content.ReadAsStringAsync();
+
+                if (!httpResponse.IsSuccessStatusCode)
                 {
-                    _httpClient.SetToken(response.Token);
-                    _currentUser = new User
-                    {
-                        Username = response.Username,
-                        Role = response.Role
-                    };
-                    return response;
+                    // 尝试解析后端返回的错误文本
+                    var message = string.IsNullOrWhiteSpace(content)
+                        ? $"注册失败（状态码: {httpResponse.StatusCode}）"
+                        : content;
+
+                    throw new Exception(message);
                 }
-                throw new Exception("注册失败");
+
+                // 成功：正常反序列化
+                var response = System.Text.Json.JsonSerializer.Deserialize<AuthResponse>(content);
+                if (response == null)
+                    throw new Exception("注册成功但解析响应失败");
+
+                _httpClient.SetToken(response.Token);
+                _currentUser = new User
+                {
+                    Username = response.Username,
+                    Role = response.Role
+                };
+
+                return response;
             }
             catch (Exception ex)
             {
-                throw new Exception($"注册失败: {ex.Message}", ex);
+                throw new Exception($"注册失败：{ex.Message}", ex);
             }
         }
+
 
         public void Logout()
         {

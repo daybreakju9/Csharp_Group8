@@ -15,27 +15,47 @@ namespace ImageAnnotationApp.Forms
 
         private async void btnRegister_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(txtUsername.Text))
+            string username = txtUsername.Text.Trim();
+            string password = txtPassword.Text.Trim();
+            string confirm = txtConfirmPassword.Text.Trim();
+
+            // --- 1. 基础空值校验 ---
+            if (string.IsNullOrWhiteSpace(username))
             {
                 MessageBox.Show("请输入用户名", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 txtUsername.Focus();
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(txtPassword.Text))
+            if (string.IsNullOrWhiteSpace(password))
             {
                 MessageBox.Show("请输入密码", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 txtPassword.Focus();
                 return;
             }
 
-            if (txtPassword.Text != txtConfirmPassword.Text)
+            if (password != confirm)
             {
                 MessageBox.Show("两次输入的密码不一致", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 txtConfirmPassword.Focus();
                 return;
             }
 
+            // --- 2. 专业密码强度校验 ---
+            if (password.Length < 6)
+            {
+                MessageBox.Show("密码长度至少需要 6 位。", "弱密码警告", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!password.Any(char.IsLetter) || !password.Any(char.IsDigit))
+            {
+                MessageBox.Show("密码必须同时包含字母和数字，安全性更高。",
+                    "密码强度不足", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // --- 3. 禁用按钮 ---
             btnRegister.Enabled = false;
             btnRegister.Text = "注册中...";
 
@@ -43,8 +63,8 @@ namespace ImageAnnotationApp.Forms
             {
                 var registerDto = new RegisterDto
                 {
-                    Username = txtUsername.Text.Trim(),
-                    Password = txtPassword.Text
+                    Username = username,
+                    Password = password
                 };
 
                 var response = await _authService.RegisterAsync(registerDto);
@@ -68,6 +88,7 @@ namespace ImageAnnotationApp.Forms
                 btnRegister.Text = "注册";
             }
         }
+
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
