@@ -259,9 +259,8 @@ namespace ImageAnnotationApp.Forms
                 {
                     var item = new ListViewItem(queue.ProjectName);
                     item.SubItems.Add(queue.Name);
-                    item.SubItems.Add(queue.TotalImages.ToString());
-                    var groupCount = queue.ImageCount > 0 ? queue.TotalImages / queue.ImageCount : 0;
-                    item.SubItems.Add(groupCount.ToString());
+                    item.SubItems.Add(queue.TotalImageCount.ToString());
+                    item.SubItems.Add(queue.GroupCount.ToString());
                     
                     // 操作列
                     var btnExportSel = new Button

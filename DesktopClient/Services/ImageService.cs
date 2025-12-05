@@ -11,12 +11,32 @@ namespace ImageAnnotationApp.Services
             _httpClient = HttpClientService.Instance;
         }
 
-        public async Task<List<Models.Image>> GetQueueImagesAsync(int queueId)
+        /// <summary>
+        /// 获取队列的图片（分页）
+        /// </summary>
+        public async Task<PagedResult<Models.Image>> GetQueueImagesPagedAsync(
+            int queueId,
+            int pageNumber = 1,
+            int pageSize = 50,
+            string? searchTerm = null,
+            int? groupId = null)
         {
             try
             {
-                var images = await _httpClient.GetAsync<List<Models.Image>>($"images/queue/{queueId}");
-                return images ?? new List<Models.Image>();
+                var url = $"images/queue/{queueId}?pageNumber={pageNumber}&pageSize={pageSize}";
+
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    url += $"&searchTerm={Uri.EscapeDataString(searchTerm)}";
+                }
+
+                if (groupId.HasValue)
+                {
+                    url += $"&groupId={groupId}";
+                }
+
+                var result = await _httpClient.GetAsync<PagedResult<Models.Image>>(url);
+                return result ?? new PagedResult<Models.Image>();
             }
             catch (Exception ex)
             {
@@ -24,36 +44,81 @@ namespace ImageAnnotationApp.Services
             }
         }
 
+        /// <summary>
+        /// 获取队列的所有图片（兼容旧代码）
+        /// </summary>
+        public async Task<List<Models.Image>> GetQueueImagesAsync(int queueId)
+        {
+            try
+            {
+                // 使用大的 pageSize 获取所有图片
+                var result = await GetQueueImagesPagedAsync(queueId, 1, 10000);
+                return result.Items;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"获取队列图片失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 获取图片组（分页）
+        /// </summary>
+        public async Task<PagedResult<ImageGroup>> GetImageGroupsPagedAsync(
+            int queueId,
+            int pageNumber = 1,
+            int pageSize = 50,
+            string? searchTerm = null)
+        {
+            try
+            {
+                var url = $"images/groups/{queueId}?pageNumber={pageNumber}&pageSize={pageSize}";
+
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    url += $"&searchTerm={Uri.EscapeDataString(searchTerm)}";
+                }
+
+                var result = await _httpClient.GetAsync<PagedResult<ImageGroup>>(url);
+                return result ?? new PagedResult<ImageGroup>();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"获取图片组失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 获取下一个未标注的图片组
+        /// </summary>
         public async Task<ImageGroup?> GetNextGroupAsync(int queueId)
         {
             try
             {
-                // 先获取原始响应内容
-                var httpClient = HttpClientService.Instance;
-                var response = await httpClient.GetRawResponseAsync($"images/next-group/{queueId}");
-                
+                var response = await _httpClient.GetRawResponseAsync($"images/next-group/{queueId}");
+
                 if (response == null)
                 {
                     return null;
                 }
-                
-                // 检查是否包含 completed 字段（表示已完成）
+
+                // 检查是否已完成
                 if (response.Contains("\"completed\"") || response.Contains("已完成"))
                 {
                     return null;
                 }
-                
-                // 尝试反序列化为 ImageGroup
+
+                // 反序列化为 ImageGroup
                 var result = System.Text.Json.JsonSerializer.Deserialize<ImageGroup>(response, new System.Text.Json.JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
-                
+
                 if (result == null || result.Images == null || result.Images.Count == 0)
                 {
                     return null;
                 }
-                
+
                 return result;
             }
             catch (Exception ex)
@@ -62,6 +127,9 @@ namespace ImageAnnotationApp.Services
             }
         }
 
+        /// <summary>
+        /// 删除单个图片
+        /// </summary>
         public async Task<bool> DeleteAsync(int id)
         {
             try
@@ -74,6 +142,34 @@ namespace ImageAnnotationApp.Services
             }
         }
 
+        /// <summary>
+        /// 批量删除图片
+        /// </summary>
+        public async Task<int> DeleteBatchAsync(List<int> ids)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync<Dictionary<string, object>>(
+                    "images/delete-batch",
+                    new Dictionary<string, object> { ["ids"] = ids }
+                );
+
+                if (response != null && response.ContainsKey("deletedCount"))
+                {
+                    return Convert.ToInt32(response["deletedCount"]);
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"批量删除图片失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 获取图片数据
+        /// </summary>
         public async Task<byte[]> GetImageDataAsync(string imagePath)
         {
             try
@@ -86,6 +182,9 @@ namespace ImageAnnotationApp.Services
             }
         }
 
+        /// <summary>
+        /// 上传单个图片
+        /// </summary>
         public async Task UploadImageAsync(
             int queueId,
             string folderName,
@@ -109,6 +208,9 @@ namespace ImageAnnotationApp.Services
             }
         }
 
+        /// <summary>
+        /// 并行上传多个图片
+        /// </summary>
         public async Task<UploadResult> UploadImagesParallelAsync(
             int queueId,
             Dictionary<string, List<(string fileName, byte[] data)>> folderFiles,

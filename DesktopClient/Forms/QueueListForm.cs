@@ -73,8 +73,8 @@ namespace ImageAnnotationApp.Forms
                 {
                     var item = new ListViewItem(queue.Id.ToString());
                     item.SubItems.Add(queue.Name);
-                    item.SubItems.Add(queue.ImageCount.ToString());
-                    item.SubItems.Add(queue.TotalImages.ToString());
+                    item.SubItems.Add(queue.ComparisonCount.ToString());
+                    item.SubItems.Add(queue.GroupCount.ToString());
                     item.SubItems.Add(queue.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
                     item.SubItems.Add("双击开始选择");
                     item.Tag = queue;

@@ -1,9 +1,7 @@
-using Backend.Data;
 using Backend.DTOs;
-using Backend.Models;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace Backend.Controllers;
@@ -13,13 +11,18 @@ namespace Backend.Controllers;
 [Authorize]
 public class ImagesController : ControllerBase
 {
-    private readonly AppDbContext _context;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IImageService _imageService;
+    private readonly IImageGroupService _imageGroupService;
+    private readonly IFileStorageService _fileStorage;
 
-    public ImagesController(AppDbContext context, IWebHostEnvironment environment)
+    public ImagesController(
+        IImageService imageService,
+        IImageGroupService imageGroupService,
+        IFileStorageService fileStorage)
     {
-        _context = context;
-        _environment = environment;
+        _imageService = imageService;
+        _imageGroupService = imageGroupService;
+        _fileStorage = fileStorage;
     }
 
     private int GetUserId()
@@ -28,97 +31,82 @@ public class ImagesController : ControllerBase
         return int.Parse(userIdClaim!);
     }
 
+    /// <summary>
+    /// 获取队列的所有图片（分页）
+    /// </summary>
     [HttpGet("queue/{queueId}")]
-    public async Task<ActionResult<List<ImageDto>>> GetQueueImages(int queueId)
+    public async Task<ActionResult<PagedResult<ImageDto>>> GetQueueImages(
+        int queueId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] int? groupId = null)
     {
-        var images = await _context.Images
-            .Where(i => i.QueueId == queueId)
-            .OrderBy(i => i.ImageGroup)
-            .ThenBy(i => i.Order)
-            .Select(i => new ImageDto
-            {
-                Id = i.Id,
-                QueueId = i.QueueId,
-                ImageGroup = i.ImageGroup,
-                FolderName = i.FolderName,
-                FileName = i.FileName,
-                FilePath = i.FilePath,
-                Order = i.Order
-            })
-            .ToListAsync();
+        var (items, totalCount) = await _imageService.GetPagedAsync(
+            queueId, pageNumber, pageSize, searchTerm, groupId);
 
-        return Ok(images);
+        var result = new PagedResult<ImageDto>
+        {
+            Items = items,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
+
+        return Ok(result);
     }
 
+    /// <summary>
+    /// 获取队列的所有图片组（分页）
+    /// </summary>
+    [HttpGet("groups/{queueId}")]
+    public async Task<ActionResult<PagedResult<ImageGroupDto>>> GetImageGroups(
+        int queueId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? searchTerm = null)
+    {
+        var (items, totalCount) = await _imageGroupService.GetPagedAsync(
+            queueId, pageNumber, pageSize, searchTerm);
+
+        var result = new PagedResult<ImageGroupDto>
+        {
+            Items = items,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// 获取下一个未标注的图片组
+    /// </summary>
     [HttpGet("next-group/{queueId}")]
     public async Task<ActionResult<ImageGroupDto>> GetNextImageGroup(int queueId)
     {
         var userId = GetUserId();
 
-        // Check if user is a Guest (not allowed to participate in annotation)
-        var user = await _context.Users.FindAsync(userId);
-        if (user == null)
-        {
-            return Unauthorized(new { message = "用户不存在" });
-        }
-
-        if (user.Role == "Guest")
-        {
-            return Forbid();  // 403 Forbidden - Guest users cannot access annotation images
-        }
-
-        // Get all image groups for the queue
-        var allGroups = await _context.Images
-            .Where(i => i.QueueId == queueId)
-            .Select(i => i.ImageGroup)
-            .Distinct()
-            .ToListAsync();
-
-        if (!allGroups.Any())
-        {
-            return NotFound(new { message = "该队列没有图片" });
-        }
-
-        // Get groups already selected by this user
-        var selectedGroups = await _context.SelectionRecords
-            .Where(s => s.QueueId == queueId && s.UserId == userId)
-            .Select(s => s.ImageGroup)
-            .ToListAsync();
-
-        // Find the next unselected group
-        var nextGroup = allGroups.FirstOrDefault(g => !selectedGroups.Contains(g));
+        var nextGroup = await _imageService.GetNextUnannotatedGroupAsync(queueId, userId);
 
         if (nextGroup == null)
         {
             return Ok(new { message = "所有图片组已完成选择", completed = true });
         }
 
-        // Get images for this group
-        var images = await _context.Images
-            .Where(i => i.QueueId == queueId && i.ImageGroup == nextGroup)
-            .OrderBy(i => i.Order)
-            .Select(i => new ImageDto
-            {
-                Id = i.Id,
-                QueueId = i.QueueId,
-                ImageGroup = i.ImageGroup,
-                FolderName = i.FolderName,
-                FileName = i.FileName,
-                FilePath = i.FilePath,
-                Order = i.Order
-            })
-            .ToListAsync();
-
-        return Ok(new ImageGroupDto
-        {
-            ImageGroup = nextGroup,
-            Images = images
-        });
+        return Ok(nextGroup);
     }
 
+    /// <summary>
+    /// 上传单个图片
+    /// </summary>
     [HttpPost("upload")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult> UploadImage([FromForm] int queueId, [FromForm] string folderName, [FromForm] IFormFile file)
+    public async Task<ActionResult<ImageDto>> UploadImage(
+        [FromForm] int queueId,
+        [FromForm] string folderName,
+        [FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
         {
@@ -130,81 +118,40 @@ public class ImagesController : ControllerBase
             return BadRequest(new { message = "文件夹名称不能为空" });
         }
 
-        // Start transaction for data consistency
-        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            var queue = await _context.Queues.FindAsync(queueId);
-            if (queue == null)
-            {
-                return NotFound(new { message = "队列不存在" });
-            }
-
-            // Create uploads directory if it doesn't exist
-            var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
-            Directory.CreateDirectory(uploadsPath);
-
-            // Save file
-            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-            var filePath = Path.Combine(uploadsPath, uniqueFileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            // Find existing images with the same ImageGroup (filename) to determine Order
-            var existingImagesInGroup = await _context.Images
-                .Where(i => i.QueueId == queueId && i.ImageGroup == file.FileName)
-                .ToListAsync();
-
-            int order = existingImagesInGroup.Count;
-
-            // Create image entity
-            var image = new Image
-            {
-                QueueId = queueId,
-                ImageGroup = file.FileName,
-                FolderName = folderName,
-                FileName = file.FileName,
-                FilePath = $"/uploads/{queueId}/{uniqueFileName}",
-                Order = order,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Images.Add(image);
-            await _context.SaveChangesAsync();
-
-            // Update queue total images count (count unique ImageGroups)
-            var totalGroups = await _context.Images
-                .Where(i => i.QueueId == queueId)
-                .Select(i => i.ImageGroup)
-                .Distinct()
-                .CountAsync();
-            queue.TotalImages = totalGroups;
-            await _context.SaveChangesAsync();
-
-            // Commit transaction
-            await transaction.CommitAsync();
+            using var stream = file.OpenReadStream();
+            var imageDto = await _imageService.UploadAsync(queueId, folderName, file.FileName, stream);
 
             return Ok(new
             {
                 message = "上传成功",
-                imageId = image.Id,
-                fileName = file.FileName
+                data = imageDto
             });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            // Rollback transaction on error
-            await transaction.RollbackAsync();
             return StatusCode(500, new { message = "上传图片时发生错误", details = ex.Message });
         }
     }
 
-    [HttpPost("import")]
+    /// <summary>
+    /// 批量上传图片
+    /// </summary>
+    [HttpPost("upload-batch")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult> ImportImages([FromForm] int queueId, [FromForm] List<IFormFile> files, [FromForm] List<string> folderNames)
+    public async Task<ActionResult> UploadBatch(
+        [FromForm] int queueId,
+        [FromForm] List<IFormFile> files,
+        [FromForm] List<string> folderNames)
     {
         if (files == null || !files.Any())
         {
@@ -216,183 +163,53 @@ public class ImagesController : ControllerBase
             return BadRequest(new { message = "文件和文件夹名称数量不匹配" });
         }
 
-        // Start transaction for data consistency
-        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            var queue = await _context.Queues.FindAsync(queueId);
-            if (queue == null)
-            {
-                return NotFound(new { message = "队列不存在" });
-            }
-
-            // Create uploads directory if it doesn't exist
-            var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
-            Directory.CreateDirectory(uploadsPath);
-
-            // Group files by filename (same-name files from different folders)
-            var fileGroups = new Dictionary<string, List<(IFormFile file, string folderName, int index)>>();
+            // 按文件夹组织文件
+            var folderFiles = new Dictionary<string, List<(string fileName, Stream fileStream)>>();
 
             for (int i = 0; i < files.Count; i++)
             {
                 var file = files[i];
                 var folderName = folderNames[i];
-                var fileName = file.FileName;
 
-                if (!fileGroups.ContainsKey(fileName))
+                if (!folderFiles.ContainsKey(folderName))
                 {
-                    fileGroups[fileName] = new List<(IFormFile, string, int)>();
+                    folderFiles[folderName] = new List<(string, Stream)>();
                 }
 
-                fileGroups[fileName].Add((file, folderName, i));
+                folderFiles[folderName].Add((file.FileName, file.OpenReadStream()));
             }
 
-            var imageEntities = new List<Image>();
+            var result = await _imageService.UploadBatchAsync(queueId, folderFiles);
 
-            foreach (var group in fileGroups)
+            // 关闭所有流
+            foreach (var kvp in folderFiles)
             {
-                var fileName = group.Key;
-                var filesInGroup = group.Value;
-
-                int order = 0;
-                foreach (var (file, folderName, _) in filesInGroup)
+                foreach (var (_, stream) in kvp.Value)
                 {
-                    // Save file
-                    var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-                    var filePath = Path.Combine(uploadsPath, uniqueFileName);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(stream);
-                    }
-
-                    // Create image entity
-                    var image = new Image
-                    {
-                        QueueId = queueId,
-                        ImageGroup = fileName,
-                        FolderName = folderName,
-                        FileName = file.FileName,
-                        FilePath = $"/uploads/{queueId}/{uniqueFileName}",
-                        Order = order++,
-                        CreatedAt = DateTime.UtcNow
-                    };
-
-                    imageEntities.Add(image);
+                    stream.Dispose();
                 }
             }
-
-            _context.Images.AddRange(imageEntities);
-            await _context.SaveChangesAsync();
-
-            // Update queue total images (count unique ImageGroups)
-            var totalGroups = await _context.Images
-                .Where(i => i.QueueId == queueId)
-                .Select(i => i.ImageGroup)
-                .Distinct()
-                .CountAsync();
-            queue.TotalImages = totalGroups;
-            await _context.SaveChangesAsync();
-
-            // Commit transaction
-            await transaction.CommitAsync();
-
-            return Ok(new { message = $"成功导入 {imageEntities.Count} 张图片，共 {totalGroups} 个图片组" });
-        }
-        catch (Exception ex)
-        {
-            // Rollback transaction on error
-            await transaction.RollbackAsync();
-            return StatusCode(500, new { message = "导入图片时发生错误", details = ex.Message });
-        }
-    }
-
-    [HttpPost("import-single")]
-    [Authorize(Roles = "Admin")]
-    public async Task<ActionResult> ImportSingleImage([FromForm] int queueId, [FromForm] IFormFile file, [FromForm] string folderName)
-    {
-        if (file == null || file.Length == 0)
-        {
-            return BadRequest(new { message = "没有上传文件" });
-        }
-
-        if (string.IsNullOrWhiteSpace(folderName))
-        {
-            return BadRequest(new { message = "文件夹名称不能为空" });
-        }
-
-        // Start transaction for data consistency
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
-        {
-            var queue = await _context.Queues.FindAsync(queueId);
-            if (queue == null)
-            {
-                return NotFound(new { message = "队列不存在" });
-            }
-
-            // Create uploads directory if it doesn't exist
-            var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", queueId.ToString());
-            Directory.CreateDirectory(uploadsPath);
-
-            // Save file
-            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-            var filePath = Path.Combine(uploadsPath, uniqueFileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            // Find existing images with the same ImageGroup (filename) to determine Order
-            var existingImagesInGroup = await _context.Images
-                .Where(i => i.QueueId == queueId && i.ImageGroup == file.FileName)
-                .ToListAsync();
-
-            int order = existingImagesInGroup.Count;
-
-            // Create image entity
-            var image = new Image
-            {
-                QueueId = queueId,
-                ImageGroup = file.FileName,
-                FolderName = folderName,
-                FileName = file.FileName,
-                FilePath = $"/uploads/{queueId}/{uniqueFileName}",
-                Order = order,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Images.Add(image);
-            await _context.SaveChangesAsync();
-
-            // Update queue total images count (count unique ImageGroups)
-            var totalGroups = await _context.Images
-                .Where(i => i.QueueId == queueId)
-                .Select(i => i.ImageGroup)
-                .Distinct()
-                .CountAsync();
-            queue.TotalImages = totalGroups;
-            await _context.SaveChangesAsync();
-
-            // Commit transaction
-            await transaction.CommitAsync();
 
             return Ok(new
             {
-                message = "上传成功",
-                imageId = image.Id,
-                fileName = file.FileName
+                message = $"批量上传完成",
+                successCount = result.SuccessCount,
+                failureCount = result.FailureCount,
+                totalGroups = result.TotalGroups,
+                errors = result.Errors
             });
         }
         catch (Exception ex)
         {
-            // Rollback transaction on error
-            await transaction.RollbackAsync();
-            return StatusCode(500, new { message = "上传图片时发生错误", details = ex.Message });
+            return StatusCode(500, new { message = "批量上传时发生错误", details = ex.Message });
         }
     }
 
+    /// <summary>
+    /// 获取图片文件
+    /// </summary>
     [HttpGet("file")]
     public async Task<IActionResult> GetImageFile([FromQuery] string path)
     {
@@ -407,19 +224,16 @@ public class ImagesController : ControllerBase
             return BadRequest(new { message = "无效的路径" });
         }
 
-        var filePath = Path.Combine(_environment.ContentRootPath, path.TrimStart('/'));
-        
-        if (!System.IO.File.Exists(filePath))
+        var fileBytes = await _fileStorage.GetFileAsync(path);
+
+        if (fileBytes == null)
         {
             return NotFound(new { message = "文件不存在" });
         }
 
-        var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        var contentType = "image/jpeg"; // Default to JPEG, can be enhanced to detect actual type
-        
-        // Try to detect content type from file extension
-        var extension = Path.GetExtension(filePath).ToLowerInvariant();
-        contentType = extension switch
+        // Detect content type from file extension
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        var contentType = extension switch
         {
             ".jpg" or ".jpeg" => "image/jpeg",
             ".png" => "image/png",
@@ -432,27 +246,51 @@ public class ImagesController : ControllerBase
         return File(fileBytes, contentType);
     }
 
+    /// <summary>
+    /// 删除单个图片
+    /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult> DeleteImage(int id)
     {
-        var image = await _context.Images.FindAsync(id);
-        if (image == null)
+        try
         {
-            return NotFound(new { message = "图片不存在" });
+            var success = await _imageService.DeleteAsync(id);
+
+            if (!success)
+            {
+                return NotFound(new { message = "图片不存在" });
+            }
+
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "删除图片时发生错误", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 批量删除图片
+    /// </summary>
+    [HttpPost("delete-batch")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> DeleteBatch([FromBody] List<int> ids)
+    {
+        if (ids == null || !ids.Any())
+        {
+            return BadRequest(new { message = "没有提供要删除的图片ID" });
         }
 
-        // Delete file from disk
-        var filePath = Path.Combine(_environment.ContentRootPath, image.FilePath.TrimStart('/'));
-        if (System.IO.File.Exists(filePath))
+        try
         {
-            System.IO.File.Delete(filePath);
+            var count = await _imageService.DeleteBatchAsync(ids);
+
+            return Ok(new { message = $"成功删除 {count} 张图片", deletedCount = count });
         }
-
-        _context.Images.Remove(image);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "批量删除时发生错误", details = ex.Message });
+        }
     }
 }
-

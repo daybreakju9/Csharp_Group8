@@ -61,7 +61,7 @@ public class SelectionsController : ControllerBase
 
             // Check if image exists
             var image = await _context.Images.FindAsync(createDto.SelectedImageId);
-            if (image == null || image.QueueId != createDto.QueueId || image.ImageGroup != createDto.ImageGroup)
+            if (image == null || image.QueueId != createDto.QueueId || image.ImageGroupId != createDto.ImageGroupId)
             {
                 return BadRequest(new { message = "图片不存在或不属于指定队列" });
             }
@@ -70,7 +70,7 @@ public class SelectionsController : ControllerBase
             var existingSelection = await _context.SelectionRecords
                 .FirstOrDefaultAsync(s => s.QueueId == createDto.QueueId
                                        && s.UserId == userId
-                                       && s.ImageGroup == createDto.ImageGroup);
+                                       && s.ImageGroupId == createDto.ImageGroupId);
 
             if (existingSelection != null)
             {
@@ -84,8 +84,9 @@ public class SelectionsController : ControllerBase
             {
                 QueueId = createDto.QueueId,
                 UserId = userId,
-                ImageGroup = createDto.ImageGroup,
+                ImageGroupId = createDto.ImageGroupId,
                 SelectedImageId = createDto.SelectedImageId,
+                DurationSeconds = createDto.DurationSeconds,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -98,10 +99,8 @@ public class SelectionsController : ControllerBase
             if (progress == null)
             {
                 // Get total groups for this queue
-                var totalGroups = await _context.Images
-                    .Where(i => i.QueueId == createDto.QueueId)
-                    .Select(i => i.ImageGroup)
-                    .Distinct()
+                var totalGroups = await _context.ImageGroups
+                    .Where(g => g.QueueId == createDto.QueueId)
                     .CountAsync();
 
                 progress = new UserProgress
@@ -129,6 +128,7 @@ public class SelectionsController : ControllerBase
             var selectionDto = await _context.SelectionRecords
                 .Include(s => s.User)
                 .Include(s => s.SelectedImage)
+                .Include(s => s.ImageGroup)
                 .Where(s => s.Id == selection.Id)
                 .Select(s => new SelectionDto
                 {
@@ -136,10 +136,12 @@ public class SelectionsController : ControllerBase
                     QueueId = s.QueueId,
                     UserId = s.UserId,
                     Username = s.User.Username,
-                    ImageGroup = s.ImageGroup,
+                    ImageGroupId = s.ImageGroupId,
+                    ImageGroupName = s.ImageGroup.GroupName,
                     SelectedImageId = s.SelectedImageId,
                     SelectedImagePath = s.SelectedImage.FilePath,
                     SelectedFolderName = s.SelectedImage.FolderName,
+                    DurationSeconds = s.DurationSeconds,
                     CreatedAt = s.CreatedAt
                 })
                 .FirstAsync();
@@ -160,6 +162,7 @@ public class SelectionsController : ControllerBase
         var selection = await _context.SelectionRecords
             .Include(s => s.User)
             .Include(s => s.SelectedImage)
+            .Include(s => s.ImageGroup)
             .Where(s => s.Id == id)
             .Select(s => new SelectionDto
             {
@@ -167,10 +170,12 @@ public class SelectionsController : ControllerBase
                 QueueId = s.QueueId,
                 UserId = s.UserId,
                 Username = s.User.Username,
-                ImageGroup = s.ImageGroup,
+                ImageGroupId = s.ImageGroupId,
+                ImageGroupName = s.ImageGroup.GroupName,
                 SelectedImageId = s.SelectedImageId,
                 SelectedImagePath = s.SelectedImage.FilePath,
                 SelectedFolderName = s.SelectedImage.FolderName,
+                DurationSeconds = s.DurationSeconds,
                 CreatedAt = s.CreatedAt
             })
             .FirstOrDefaultAsync();
@@ -189,6 +194,7 @@ public class SelectionsController : ControllerBase
         var query = _context.SelectionRecords
             .Include(s => s.User)
             .Include(s => s.SelectedImage)
+            .Include(s => s.ImageGroup)
             .Where(s => s.QueueId == queueId);
 
         if (userId.HasValue)
@@ -210,10 +216,12 @@ public class SelectionsController : ControllerBase
                 QueueId = s.QueueId,
                 UserId = s.UserId,
                 Username = s.User.Username,
-                ImageGroup = s.ImageGroup,
+                ImageGroupId = s.ImageGroupId,
+                ImageGroupName = s.ImageGroup.GroupName,
                 SelectedImageId = s.SelectedImageId,
                 SelectedImagePath = s.SelectedImage.FilePath,
                 SelectedFolderName = s.SelectedImage.FolderName,
+                DurationSeconds = s.DurationSeconds,
                 CreatedAt = s.CreatedAt
             })
             .ToListAsync();
@@ -238,7 +246,7 @@ public class SelectionsController : ControllerBase
                 Username = p.User.Username,
                 CompletedGroups = p.CompletedGroups,
                 TotalGroups = p.TotalGroups,
-                ProgressPercentage = p.TotalGroups > 0 ? (double)p.CompletedGroups / p.TotalGroups * 100 : 0,
+                ProgressPercentage = p.TotalGroups > 0 ? (decimal)p.CompletedGroups / p.TotalGroups * 100 : 0,
                 LastUpdated = p.LastUpdated
             })
             .FirstOrDefaultAsync();
@@ -246,10 +254,8 @@ public class SelectionsController : ControllerBase
         if (progress == null)
         {
             // Create initial progress
-            var totalGroups = await _context.Images
-                .Where(i => i.QueueId == queueId)
-                .Select(i => i.ImageGroup)
-                .Distinct()
+            var totalGroups = await _context.ImageGroups
+                .Where(g => g.QueueId == queueId)
                 .CountAsync();
 
             var queue = await _context.Queues.FindAsync(queueId);
@@ -295,7 +301,7 @@ public class SelectionsController : ControllerBase
                 Username = p.User.Username,
                 CompletedGroups = p.CompletedGroups,
                 TotalGroups = p.TotalGroups,
-                ProgressPercentage = p.TotalGroups > 0 ? (double)p.CompletedGroups / p.TotalGroups * 100 : 0,
+                ProgressPercentage = p.TotalGroups > 0 ? (decimal)p.CompletedGroups / p.TotalGroups * 100 : 0,
                 LastUpdated = p.LastUpdated
             })
             .ToListAsync();

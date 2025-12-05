@@ -59,7 +59,7 @@ namespace ImageAnnotationApp.Forms
 
             var lblInfo = new Label
             {
-                Text = $"队列: {_queue.Name} | 所属项目: {_queue.ProjectName} | 对比图片数: {_queue.ImageCount} 张 | 当前总图片数: {_queue.TotalImages}",
+                Text = $"队列: {_queue.Name} | 所属项目: {_queue.ProjectName} | 对比图片数: {_queue.ComparisonCount} 张 | 当前总图片数: {_queue.TotalImageCount}",
                 Dock = DockStyle.Fill,
                 AutoSize = false,
                 TextAlign = ContentAlignment.MiddleLeft
@@ -67,7 +67,7 @@ namespace ImageAnnotationApp.Forms
 
             var lblTip = new Label
             {
-                Text = "提示: 需要上传 " + _queue.ImageCount + " 个文件夹，每个文件夹包含相同文件名的图片。系统会自动按文件名分组。",
+                Text = "提示: 需要上传 " + _queue.ComparisonCount + " 个文件夹，每个文件夹包含相同文件名的图片。系统会自动按文件名分组。",
                 Dock = DockStyle.Bottom,
                 Height = 30,
                 ForeColor = Color.Blue,
@@ -246,9 +246,9 @@ namespace ImageAnnotationApp.Forms
 
         private void BtnAddFolder_Click(object? sender, EventArgs e)
         {
-            if (_folders.Count >= _queue.ImageCount)
+            if (_folders.Count >= _queue.ComparisonCount)
             {
-                MessageBox.Show($"最多只能添加 {_queue.ImageCount} 个文件夹", "提示",
+                MessageBox.Show($"最多只能添加 {_queue.ComparisonCount} 个文件夹", "提示",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -271,9 +271,9 @@ namespace ImageAnnotationApp.Forms
 
         private void BtnAddFromLocalFolder_Click(object? sender, EventArgs e)
         {
-            if (_folders.Count >= _queue.ImageCount)
+            if (_folders.Count >= _queue.ComparisonCount)
             {
-                MessageBox.Show($"最多只能添加 {_queue.ImageCount} 个文件夹", "提示",
+                MessageBox.Show($"最多只能添加 {_queue.ComparisonCount} 个文件夹", "提示",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -607,10 +607,10 @@ namespace ImageAnnotationApp.Forms
                 return;
             }
 
-            if (_folders.Count < _queue.ImageCount)
+            if (_folders.Count < _queue.ComparisonCount)
             {
                 var result = MessageBox.Show(
-                    $"当前只有 {_folders.Count} 个文件夹，但队列设置需要 {_queue.ImageCount} 个文件夹。是否继续？",
+                    $"当前只有 {_folders.Count} 个文件夹，但队列设置需要 {_queue.ComparisonCount} 个文件夹。是否继续？",
                     "提示",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
@@ -793,7 +793,7 @@ namespace ImageAnnotationApp.Forms
             }
 
             // 按图片组分组
-            var imageGroups = _uploadedImages.GroupBy(img => img.ImageGroup).OrderBy(g => g.Key);
+            var imageGroups = _uploadedImages.GroupBy(img => img.ImageGroupId).OrderBy(g => g.Key);
             int groupCount = imageGroups.Count();
 
             foreach (var group in imageGroups)
@@ -801,7 +801,7 @@ namespace ImageAnnotationApp.Forms
                 bool isFirstInGroup = true;
                 foreach (var image in group.OrderBy(i => i.FolderName))
                 {
-                    var item = new ListViewItem(isFirstInGroup ? group.Key : "");
+                    var item = new ListViewItem(isFirstInGroup ? group.Key.ToString() : "");
                     item.SubItems.Add(image.FolderName);
                     item.SubItems.Add(image.FileName);
                     item.SubItems.Add(image.Id.ToString());

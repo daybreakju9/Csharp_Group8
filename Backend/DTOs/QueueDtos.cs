@@ -11,9 +11,14 @@ public class CreateQueueDto
     [MaxLength(200)]
     public string Name { get; set; } = string.Empty;
 
+    [MaxLength(1000)]
+    public string? Description { get; set; }
+
     [Required(ErrorMessage = "对比图片数量是必需的")]
     [Range(2, 10, ErrorMessage = "对比图片数量必须在2到10之间")]
-    public int ImageCount { get; set; } = 2;
+    public int ComparisonCount { get; set; } = 2;
+
+    public bool IsRandomOrder { get; set; } = false;
 }
 
 public class UpdateQueueDto
@@ -22,9 +27,16 @@ public class UpdateQueueDto
     [MaxLength(200)]
     public string Name { get; set; } = string.Empty;
 
+    [MaxLength(1000)]
+    public string? Description { get; set; }
+
     [Required(ErrorMessage = "对比图片数量是必需的")]
     [Range(2, 10, ErrorMessage = "对比图片数量必须在2到10之间")]
-    public int ImageCount { get; set; }
+    public int ComparisonCount { get; set; }
+
+    public string? Status { get; set; }
+
+    public bool? IsRandomOrder { get; set; }
 }
 
 public class QueueDto
@@ -33,8 +45,13 @@ public class QueueDto
     public int ProjectId { get; set; }
     public string ProjectName { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public int ImageCount { get; set; }
-    public int TotalImages { get; set; }
+    public string? Description { get; set; }
+    public int ComparisonCount { get; set; }
+    public int GroupCount { get; set; }
+    public int TotalImageCount { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public bool IsRandomOrder { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 

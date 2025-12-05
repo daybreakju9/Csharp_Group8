@@ -141,10 +141,9 @@ namespace ImageAnnotationApp.Forms
                     var item = new ListViewItem(queue.Id.ToString());
                     item.SubItems.Add(queue.Name);
                     item.SubItems.Add(queue.ProjectName);
-                    item.SubItems.Add(queue.ImageCount.ToString());
-                    item.SubItems.Add(queue.TotalImages.ToString());
-                    var groupCount = queue.ImageCount > 0 ? queue.TotalImages / queue.ImageCount : 0;
-                    item.SubItems.Add(groupCount.ToString());
+                    item.SubItems.Add(queue.ComparisonCount.ToString());
+                    item.SubItems.Add(queue.TotalImageCount.ToString());
+                    item.SubItems.Add(queue.GroupCount.ToString());
                     item.SubItems.Add(queue.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
                     item.SubItems.Add("双击管理");
                     item.Tag = queue;
@@ -262,7 +261,7 @@ namespace ImageAnnotationApp.Forms
                 Size = new Size(100, 23),
                 Minimum = 2,
                 Maximum = 10,
-                Value = existingQueue?.ImageCount ?? 3
+                Value = existingQueue?.ComparisonCount ?? 3
             };
 
             var btnOk = new Button
@@ -293,7 +292,7 @@ namespace ImageAnnotationApp.Forms
                             {
                                 ProjectId = selectedProject.Id,
                                 Name = txtName.Text.Trim(),
-                                ImageCount = (int)numImageCount.Value
+                                ComparisonCount = (int)numImageCount.Value
                             });
                             MessageBox.Show(UIConstants.Messages.CreateSuccess, UIConstants.MessageTitles.Success,
                                 MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -303,7 +302,7 @@ namespace ImageAnnotationApp.Forms
                             await _queueService.UpdateAsync(existingQueue.Id, new UpdateQueueDto
                             {
                                 Name = txtName.Text.Trim(),
-                                ImageCount = (int)numImageCount.Value
+                                ComparisonCount = (int)numImageCount.Value
                             });
                             MessageBox.Show(UIConstants.Messages.UpdateSuccess, UIConstants.MessageTitles.Success,
                                 MessageBoxButtons.OK, MessageBoxIcon.Information);

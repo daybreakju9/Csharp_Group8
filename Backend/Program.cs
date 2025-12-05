@@ -1,5 +1,6 @@
 using Backend.Data;
 using Backend.Services;
+using Backend.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -28,8 +29,15 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register custom services
+// Register Repository layer
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Register Service layer
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddScoped<IImageProcessingService, ImageProcessingService>();
+builder.Services.AddScoped<IImageGroupService, ImageGroupService>();
+builder.Services.AddScoped<IImageService, ImageService>();
 
 // Configure SQLite Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -75,14 +83,15 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Ensure database is created
+// Ensure database is created and migrated
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
-        dbContext.Database.EnsureCreated();
-        Console.WriteLine("Database initialized successfully.");
+        // Apply migrations
+        dbContext.Database.Migrate();
+        Console.WriteLine("Database migrated successfully.");
 
         // 创建默认管理员账号
         if (!dbContext.Users.Any(u => u.Username == "admin"))

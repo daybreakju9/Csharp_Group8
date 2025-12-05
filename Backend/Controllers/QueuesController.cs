@@ -39,9 +39,14 @@ public class QueuesController : ControllerBase
                 ProjectId = q.ProjectId,
                 ProjectName = q.Project.Name,
                 Name = q.Name,
-                ImageCount = q.ImageCount,
-                TotalImages = q.TotalImages,
-                CreatedAt = q.CreatedAt
+                Description = q.Description,
+                ComparisonCount = q.ComparisonCount,
+                GroupCount = q.GroupCount,
+                TotalImageCount = q.TotalImageCount,
+                Status = q.Status,
+                IsRandomOrder = q.IsRandomOrder,
+                CreatedAt = q.CreatedAt,
+                UpdatedAt = q.UpdatedAt
             })
             .ToListAsync();
 
@@ -60,9 +65,14 @@ public class QueuesController : ControllerBase
                 ProjectId = q.ProjectId,
                 ProjectName = q.Project.Name,
                 Name = q.Name,
-                ImageCount = q.ImageCount,
-                TotalImages = q.TotalImages,
-                CreatedAt = q.CreatedAt
+                Description = q.Description,
+                ComparisonCount = q.ComparisonCount,
+                GroupCount = q.GroupCount,
+                TotalImageCount = q.TotalImageCount,
+                Status = q.Status,
+                IsRandomOrder = q.IsRandomOrder,
+                CreatedAt = q.CreatedAt,
+                UpdatedAt = q.UpdatedAt
             })
             .FirstOrDefaultAsync();
 
@@ -94,9 +104,14 @@ public class QueuesController : ControllerBase
         {
             ProjectId = createDto.ProjectId,
             Name = createDto.Name,
-            ImageCount = createDto.ImageCount,
-            TotalImages = 0,
-            CreatedAt = DateTime.UtcNow
+            Description = createDto.Description,
+            ComparisonCount = createDto.ComparisonCount,
+            GroupCount = 0,
+            TotalImageCount = 0,
+            Status = QueueStatus.Draft,
+            IsRandomOrder = createDto.IsRandomOrder,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         _context.Queues.Add(queue);
@@ -111,9 +126,14 @@ public class QueuesController : ControllerBase
                 ProjectId = q.ProjectId,
                 ProjectName = q.Project.Name,
                 Name = q.Name,
-                ImageCount = q.ImageCount,
-                TotalImages = q.TotalImages,
-                CreatedAt = q.CreatedAt
+                Description = q.Description,
+                ComparisonCount = q.ComparisonCount,
+                GroupCount = q.GroupCount,
+                TotalImageCount = q.TotalImageCount,
+                Status = q.Status,
+                IsRandomOrder = q.IsRandomOrder,
+                CreatedAt = q.CreatedAt,
+                UpdatedAt = q.UpdatedAt
             })
             .FirstAsync();
 
@@ -136,7 +156,20 @@ public class QueuesController : ControllerBase
         }
 
         queue.Name = updateDto.Name;
-        queue.ImageCount = updateDto.ImageCount;
+        queue.Description = updateDto.Description;
+        queue.ComparisonCount = updateDto.ComparisonCount;
+
+        if (!string.IsNullOrEmpty(updateDto.Status))
+        {
+            queue.Status = updateDto.Status;
+        }
+
+        if (updateDto.IsRandomOrder.HasValue)
+        {
+            queue.IsRandomOrder = updateDto.IsRandomOrder.Value;
+        }
+
+        queue.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
@@ -149,9 +182,14 @@ public class QueuesController : ControllerBase
                 ProjectId = q.ProjectId,
                 ProjectName = q.Project.Name,
                 Name = q.Name,
-                ImageCount = q.ImageCount,
-                TotalImages = q.TotalImages,
-                CreatedAt = q.CreatedAt
+                Description = q.Description,
+                ComparisonCount = q.ComparisonCount,
+                GroupCount = q.GroupCount,
+                TotalImageCount = q.TotalImageCount,
+                Status = q.Status,
+                IsRandomOrder = q.IsRandomOrder,
+                CreatedAt = q.CreatedAt,
+                UpdatedAt = q.UpdatedAt
             })
             .FirstAsync();
 

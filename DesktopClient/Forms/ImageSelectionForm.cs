@@ -546,7 +546,7 @@ namespace ImageAnnotationApp.Forms
                 var dto = new CreateSelectionDto
                 {
                     QueueId = _queueId,
-                    ImageGroup = _currentGroup.GroupName,
+                    ImageGroupId = _currentGroup.Id,
                     SelectedImageId = _selectedImageId
                 };
 
