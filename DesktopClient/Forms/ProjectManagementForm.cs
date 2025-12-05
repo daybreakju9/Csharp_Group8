@@ -195,7 +195,7 @@ namespace ImageAnnotationApp.Forms
             var form = new Form
             {
                 Text = title,
-                Size = new Size(400, 150),
+                Size = new Size(448, 244),
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 StartPosition = FormStartPosition.CenterParent,
                 MaximizeBox = false,
@@ -203,20 +203,20 @@ namespace ImageAnnotationApp.Forms
             };
 
             var label = new Label { Text = prompt, Location = new Point(10, 20), AutoSize = true };
-            var textBox = new TextBox { Location = new Point(10, 50), Size = new Size(360, 23), Text = defaultValue };
+            var textBox = new TextBox { Location = new Point(10, 50), Size = new Size(400, 23), Text = defaultValue };
             var btnOk = new Button
             {
                 Text = "确定",
                 DialogResult = DialogResult.OK,
-                Location = new Point(200, 80),
-                Size = UIConstants.ButtonSizes.Small
+                Location = new Point(106, 120),
+                Size = UIConstants.ButtonSizes.Medium
             };
             var btnCancel = new Button
             {
                 Text = "取消",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(290, 80),
-                Size = UIConstants.ButtonSizes.Small
+                Location = new Point(216, 120),
+                Size = UIConstants.ButtonSizes.Medium
             };
 
             form.Controls.AddRange(new Control[] { label, textBox, btnOk, btnCancel });

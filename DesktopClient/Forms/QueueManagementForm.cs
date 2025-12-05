@@ -225,7 +225,7 @@ namespace ImageAnnotationApp.Forms
             var lblProject = new Label { Text = "所属项目:", Location = new Point(20, 20), AutoSize = true };
             var cmbProject = new ComboBox
             {
-                Location = new Point(120, 17),
+                Location = new Point(122, 17),
                 Size = new Size(280, 23),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 DisplayMember = "Name",
@@ -249,7 +249,7 @@ namespace ImageAnnotationApp.Forms
             var lblName = new Label { Text = "队列名称:", Location = new Point(20, 60), AutoSize = true };
             var txtName = new TextBox
             {
-                Location = new Point(120, 57),
+                Location = new Point(122, 57),
                 Size = new Size(280, 23),
                 Text = existingQueue?.Name ?? ""
             };
@@ -257,7 +257,7 @@ namespace ImageAnnotationApp.Forms
             var lblImageCount = new Label { Text = "对比图片数:", Location = new Point(20, 100), AutoSize = true };
             var numImageCount = new NumericUpDown
             {
-                Location = new Point(120, 97),
+                Location = new Point(122, 97),
                 Size = new Size(100, 23),
                 Minimum = 2,
                 Maximum = 10,
@@ -267,15 +267,15 @@ namespace ImageAnnotationApp.Forms
             var btnOk = new Button
             {
                 Text = "确定",
-                Location = new Point(200, 150),
-                Size = UIConstants.ButtonSizes.Small
+                Location = new Point(112, 150),
+                Size = UIConstants.ButtonSizes.Medium
             };
             var btnCancel = new Button
             {
                 Text = "取消",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(290, 150),
-                Size = UIConstants.ButtonSizes.Small
+                Location = new Point(222, 150),
+                Size = UIConstants.ButtonSizes.Medium
             };
 
             bool success = false;
