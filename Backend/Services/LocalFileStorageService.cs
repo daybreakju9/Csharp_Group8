@@ -1,48 +1,54 @@
 using System.Security.Cryptography;
+using Microsoft.Extensions.Configuration;
 
 namespace Backend.Services;
 
-/// <summary>
-/// 本地文件存储服务实现
-/// </summary>
 public class LocalFileStorageService : IFileStorageService
 {
-    private readonly IWebHostEnvironment _environment;
-    private const string UPLOAD_FOLDER = "uploads";
+    private readonly string _root;
 
-    public LocalFileStorageService(IWebHostEnvironment environment)
+    public LocalFileStorageService(IWebHostEnvironment env, IConfiguration config)
     {
-        _environment = environment;
+        // 1. 从配置读取路径
+        var uploadRoot = config["Storage:UploadRoot"];
+
+        // 2. 处理相对路径
+        if (!Path.IsPathFullyQualified(uploadRoot))
+        {
+            uploadRoot = Path.Combine(env.ContentRootPath, uploadRoot);
+        }
+
+        // 3. 自动创建目录
+        if (!Directory.Exists(uploadRoot))
+        {
+            Directory.CreateDirectory(uploadRoot);
+            Console.WriteLine("[Storage] Upload directory created at: " + uploadRoot);
+        }
+
+        _root = uploadRoot;
     }
 
     public async Task<string> SaveFileAsync(Stream fileStream, string fileName, string folder)
     {
-        // 创建上传目录
-        var uploadPath = Path.Combine(_environment.ContentRootPath, UPLOAD_FOLDER, folder);
-        Directory.CreateDirectory(uploadPath);
+        var folderPath = Path.Combine(_root, folder);
+        Directory.CreateDirectory(folderPath);
 
-        // 生成唯一文件名
-        var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
-        var filePath = Path.Combine(uploadPath, uniqueFileName);
+        var uniqueName = $"{Guid.NewGuid()}_{fileName}";
+        var filePath = Path.Combine(folderPath, uniqueName);
 
-        // 保存文件
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await fileStream.CopyToAsync(stream);
-        }
+        using var stream = new FileStream(filePath, FileMode.Create);
+        await fileStream.CopyToAsync(stream);
 
-        // 返回相对路径
-        return $"/{UPLOAD_FOLDER}/{folder}/{uniqueFileName}";
+        return $"/uploads/{folder}/{uniqueName}";
     }
 
     public async Task<bool> DeleteFileAsync(string filePath)
     {
-        var fullPath = Path.Combine(_environment.ContentRootPath, filePath.TrimStart('/'));
+        var relative = filePath.Replace("/uploads/", "").TrimStart('/');
+        var fullPath = Path.Combine(_root, relative);
 
         if (!File.Exists(fullPath))
-        {
             return false;
-        }
 
         try
         {
@@ -57,19 +63,20 @@ public class LocalFileStorageService : IFileStorageService
 
     public async Task<byte[]?> GetFileAsync(string filePath)
     {
-        var fullPath = Path.Combine(_environment.ContentRootPath, filePath.TrimStart('/'));
+        var relative = filePath.Replace("/uploads/", "").TrimStart('/');
+        var fullPath = Path.Combine(_root, relative);
 
         if (!File.Exists(fullPath))
-        {
             return null;
-        }
 
         return await File.ReadAllBytesAsync(fullPath);
     }
 
     public Task<bool> FileExistsAsync(string filePath)
     {
-        var fullPath = Path.Combine(_environment.ContentRootPath, filePath.TrimStart('/'));
+        var relative = filePath.Replace("/uploads/", "").TrimStart('/');
+        var fullPath = Path.Combine(_root, relative);
+
         return Task.FromResult(File.Exists(fullPath));
     }
 

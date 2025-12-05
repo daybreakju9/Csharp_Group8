@@ -1,10 +1,11 @@
 using Backend.Data;
-using Backend.Services;
 using Backend.Repositories;
-using Microsoft.EntityFrameworkCore;
+using Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -128,12 +129,38 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 
 // Serve static files (uploaded images)
-app.UseStaticFiles(new StaticFileOptions
+/*app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
         Path.Combine(Directory.GetCurrentDirectory(), "uploads")),
     RequestPath = "/uploads"
+});*/
+
+var uploadRoot = builder.Configuration["Storage:UploadRoot"];
+
+if (!Path.IsPathFullyQualified(uploadRoot))
+{
+    uploadRoot = Path.Combine(Directory.GetCurrentDirectory(), uploadRoot);
+}
+
+// Ensure directory exists (auto-create)
+if (!Directory.Exists(uploadRoot))
+{
+    Directory.CreateDirectory(uploadRoot);
+    Console.WriteLine($"[Storage] Upload directory created at: {uploadRoot}");
+}
+else
+{
+    Console.WriteLine($"[Storage] Upload directory already exists: {uploadRoot}");
+}
+
+// Serve static files from this directory
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadRoot),
+    RequestPath = "/uploads"
 });
+
 
 app.UseAuthentication();
 app.UseAuthorization();
