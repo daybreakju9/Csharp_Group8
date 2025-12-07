@@ -1,10 +1,8 @@
-using Backend.Data;
 using Backend.DTOs;
-using Backend.Models;
+using Backend.Helpers;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace Backend.Controllers;
 
@@ -13,65 +11,24 @@ namespace Backend.Controllers;
 [Authorize]
 public class ProjectsController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IProjectService _projectService;
 
-    public ProjectsController(AppDbContext context)
+    public ProjectsController(IProjectService projectService)
     {
-        _context = context;
-    }
-
-    private int GetUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.Parse(userIdClaim!);
-    }
-
-    private bool IsAdmin()
-    {
-        return User.IsInRole("Admin");
+        _projectService = projectService;
     }
 
     [HttpGet]
     public async Task<ActionResult<List<ProjectDto>>> GetProjects()
     {
-        var projects = await _context.Projects
-            .Include(p => p.CreatedBy)
-            .Include(p => p.Queues)
-            .OrderByDescending(p => p.CreatedAt)
-            .Select(p => new ProjectDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                CreatedById = p.CreatedById,
-                CreatedByUsername = p.CreatedBy.Username,
-                CreatedAt = p.CreatedAt,
-                QueueCount = p.Queues.Count
-            })
-            .ToListAsync();
-
+        var projects = await _projectService.GetAllAsync();
         return Ok(projects);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ProjectDto>> GetProject(int id)
     {
-        var project = await _context.Projects
-            .Include(p => p.CreatedBy)
-            .Include(p => p.Queues)
-            .Where(p => p.Id == id)
-            .Select(p => new ProjectDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                CreatedById = p.CreatedById,
-                CreatedByUsername = p.CreatedBy.Username,
-                CreatedAt = p.CreatedAt,
-                QueueCount = p.Queues.Count
-            })
-            .FirstOrDefaultAsync();
-
+        var project = await _projectService.GetByIdAsync(id);
         if (project == null)
         {
             return NotFound(new { message = "项目不存在" });
@@ -89,35 +46,10 @@ public class ProjectsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var userId = GetUserId();
+        var userId = this.GetUserId();
+        var project = await _projectService.CreateAsync(createDto, userId);
 
-        var project = new Project
-        {
-            Name = createDto.Name,
-            Description = createDto.Description,
-            CreatedById = userId,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Projects.Add(project);
-        await _context.SaveChangesAsync();
-
-        var projectDto = await _context.Projects
-            .Include(p => p.CreatedBy)
-            .Where(p => p.Id == project.Id)
-            .Select(p => new ProjectDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                CreatedById = p.CreatedById,
-                CreatedByUsername = p.CreatedBy.Username,
-                CreatedAt = p.CreatedAt,
-                QueueCount = 0
-            })
-            .FirstAsync();
-
-        return CreatedAtAction(nameof(GetProject), new { id = project.Id }, projectDto);
+        return CreatedAtAction(nameof(GetProject), new { id = project.Id }, project);
     }
 
     [HttpPut("{id}")]
@@ -129,48 +61,24 @@ public class ProjectsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var project = await _context.Projects.FindAsync(id);
+        var project = await _projectService.UpdateAsync(id, updateDto);
         if (project == null)
         {
             return NotFound(new { message = "项目不存在" });
         }
 
-        project.Name = updateDto.Name;
-        project.Description = updateDto.Description;
-
-        await _context.SaveChangesAsync();
-
-        var projectDto = await _context.Projects
-            .Include(p => p.CreatedBy)
-            .Include(p => p.Queues)
-            .Where(p => p.Id == id)
-            .Select(p => new ProjectDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                CreatedById = p.CreatedById,
-                CreatedByUsername = p.CreatedBy.Username,
-                CreatedAt = p.CreatedAt,
-                QueueCount = p.Queues.Count
-            })
-            .FirstAsync();
-
-        return Ok(projectDto);
+        return Ok(project);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult> DeleteProject(int id)
     {
-        var project = await _context.Projects.FindAsync(id);
-        if (project == null)
+        var success = await _projectService.DeleteAsync(id);
+        if (!success)
         {
             return NotFound(new { message = "项目不存在" });
         }
-
-        _context.Projects.Remove(project);
-        await _context.SaveChangesAsync();
 
         return NoContent();
     }

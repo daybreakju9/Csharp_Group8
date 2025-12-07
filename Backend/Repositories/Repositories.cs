@@ -11,6 +11,7 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
     public async Task<Project?> GetWithQueuesAsync(int id)
     {
         return await _context.Projects
+            .Include(p => p.CreatedBy)
             .Include(p => p.Queues)
             .FirstOrDefaultAsync(p => p.Id == id);
     }

@@ -39,6 +39,10 @@ builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IImageProcessingService, ImageProcessingService>();
 builder.Services.AddScoped<IImageGroupService, ImageGroupService>();
 builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IQueueService, QueueService>();
+builder.Services.AddScoped<ISelectionService, SelectionService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Configure SQLite Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");

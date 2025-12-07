@@ -1,9 +1,7 @@
-using Backend.Data;
 using Backend.DTOs;
-using Backend.Models;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Controllers;
 
@@ -12,70 +10,24 @@ namespace Backend.Controllers;
 [Authorize]
 public class QueuesController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IQueueService _queueService;
 
-    public QueuesController(AppDbContext context)
+    public QueuesController(IQueueService queueService)
     {
-        _context = context;
+        _queueService = queueService;
     }
 
     [HttpGet]
     public async Task<ActionResult<List<QueueDto>>> GetQueues([FromQuery] int? projectId = null)
     {
-        var query = _context.Queues
-            .Include(q => q.Project)
-            .AsQueryable();
-
-        if (projectId.HasValue)
-        {
-            query = query.Where(q => q.ProjectId == projectId.Value);
-        }
-
-        var queues = await query
-            .OrderByDescending(q => q.CreatedAt)
-            .Select(q => new QueueDto
-            {
-                Id = q.Id,
-                ProjectId = q.ProjectId,
-                ProjectName = q.Project.Name,
-                Name = q.Name,
-                Description = q.Description,
-                ComparisonCount = q.ComparisonCount,
-                GroupCount = q.GroupCount,
-                TotalImageCount = q.TotalImageCount,
-                Status = q.Status,
-                IsRandomOrder = q.IsRandomOrder,
-                CreatedAt = q.CreatedAt,
-                UpdatedAt = q.UpdatedAt
-            })
-            .ToListAsync();
-
+        var queues = await _queueService.GetAllAsync(projectId);
         return Ok(queues);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<QueueDto>> GetQueue(int id)
     {
-        var queue = await _context.Queues
-            .Include(q => q.Project)
-            .Where(q => q.Id == id)
-            .Select(q => new QueueDto
-            {
-                Id = q.Id,
-                ProjectId = q.ProjectId,
-                ProjectName = q.Project.Name,
-                Name = q.Name,
-                Description = q.Description,
-                ComparisonCount = q.ComparisonCount,
-                GroupCount = q.GroupCount,
-                TotalImageCount = q.TotalImageCount,
-                Status = q.Status,
-                IsRandomOrder = q.IsRandomOrder,
-                CreatedAt = q.CreatedAt,
-                UpdatedAt = q.UpdatedAt
-            })
-            .FirstOrDefaultAsync();
-
+        var queue = await _queueService.GetByIdAsync(id);
         if (queue == null)
         {
             return NotFound(new { message = "队列不存在" });
@@ -93,51 +45,15 @@ public class QueuesController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        // Check if project exists
-        var projectExists = await _context.Projects.AnyAsync(p => p.Id == createDto.ProjectId);
-        if (!projectExists)
+        try
         {
-            return BadRequest(new { message = "项目不存在" });
+            var queue = await _queueService.CreateAsync(createDto);
+            return CreatedAtAction(nameof(GetQueue), new { id = queue.Id }, queue);
         }
-
-        var queue = new Queue
+        catch (ArgumentException ex)
         {
-            ProjectId = createDto.ProjectId,
-            Name = createDto.Name,
-            Description = createDto.Description,
-            ComparisonCount = createDto.ComparisonCount,
-            GroupCount = 0,
-            TotalImageCount = 0,
-            Status = QueueStatus.Draft,
-            IsRandomOrder = createDto.IsRandomOrder,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        _context.Queues.Add(queue);
-        await _context.SaveChangesAsync();
-
-        var queueDto = await _context.Queues
-            .Include(q => q.Project)
-            .Where(q => q.Id == queue.Id)
-            .Select(q => new QueueDto
-            {
-                Id = q.Id,
-                ProjectId = q.ProjectId,
-                ProjectName = q.Project.Name,
-                Name = q.Name,
-                Description = q.Description,
-                ComparisonCount = q.ComparisonCount,
-                GroupCount = q.GroupCount,
-                TotalImageCount = q.TotalImageCount,
-                Status = q.Status,
-                IsRandomOrder = q.IsRandomOrder,
-                CreatedAt = q.CreatedAt,
-                UpdatedAt = q.UpdatedAt
-            })
-            .FirstAsync();
-
-        return CreatedAtAction(nameof(GetQueue), new { id = queue.Id }, queueDto);
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id}")]
@@ -149,65 +65,24 @@ public class QueuesController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var queue = await _context.Queues.FindAsync(id);
+        var queue = await _queueService.UpdateAsync(id, updateDto);
         if (queue == null)
         {
             return NotFound(new { message = "队列不存在" });
         }
 
-        queue.Name = updateDto.Name;
-        queue.Description = updateDto.Description;
-        queue.ComparisonCount = updateDto.ComparisonCount;
-
-        if (!string.IsNullOrEmpty(updateDto.Status))
-        {
-            queue.Status = updateDto.Status;
-        }
-
-        if (updateDto.IsRandomOrder.HasValue)
-        {
-            queue.IsRandomOrder = updateDto.IsRandomOrder.Value;
-        }
-
-        queue.UpdatedAt = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-
-        var queueDto = await _context.Queues
-            .Include(q => q.Project)
-            .Where(q => q.Id == id)
-            .Select(q => new QueueDto
-            {
-                Id = q.Id,
-                ProjectId = q.ProjectId,
-                ProjectName = q.Project.Name,
-                Name = q.Name,
-                Description = q.Description,
-                ComparisonCount = q.ComparisonCount,
-                GroupCount = q.GroupCount,
-                TotalImageCount = q.TotalImageCount,
-                Status = q.Status,
-                IsRandomOrder = q.IsRandomOrder,
-                CreatedAt = q.CreatedAt,
-                UpdatedAt = q.UpdatedAt
-            })
-            .FirstAsync();
-
-        return Ok(queueDto);
+        return Ok(queue);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult> DeleteQueue(int id)
     {
-        var queue = await _context.Queues.FindAsync(id);
-        if (queue == null)
+        var success = await _queueService.DeleteAsync(id);
+        if (!success)
         {
             return NotFound(new { message = "队列不存在" });
         }
-
-        _context.Queues.Remove(queue);
-        await _context.SaveChangesAsync();
 
         return NoContent();
     }

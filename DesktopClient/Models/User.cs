@@ -39,4 +39,9 @@ namespace ImageAnnotationApp.Models
     {
         public int UserId { get; set; }
     }
+
+    public class UpdateUserRoleDto
+    {
+        public string Role { get; set; } = string.Empty;
+    }
 }

@@ -1,4 +1,5 @@
 using Backend.Data;
+using Backend.Models;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Backend.Repositories;
@@ -17,6 +18,7 @@ public class UnitOfWork : IUnitOfWork
     public IImageRepository Images { get; }
     public ISelectionRecordRepository SelectionRecords { get; }
     public IUserProgressRepository UserProgresses { get; }
+    public IRepository<User> Users { get; }
 
     public UnitOfWork(AppDbContext context)
     {
@@ -27,6 +29,7 @@ public class UnitOfWork : IUnitOfWork
         Images = new ImageRepository(_context);
         SelectionRecords = new SelectionRecordRepository(_context);
         UserProgresses = new UserProgressRepository(_context);
+        Users = new Repository<User>(_context);
     }
 
     public async Task<int> SaveChangesAsync()

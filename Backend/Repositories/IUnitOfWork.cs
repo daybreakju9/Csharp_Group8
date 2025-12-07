@@ -1,3 +1,5 @@
+using Backend.Models;
+
 namespace Backend.Repositories;
 
 /// <summary>
@@ -11,6 +13,7 @@ public interface IUnitOfWork : IDisposable
     IImageRepository Images { get; }
     ISelectionRecordRepository SelectionRecords { get; }
     IUserProgressRepository UserProgresses { get; }
+    IRepository<User> Users { get; }
 
     Task<int> SaveChangesAsync();
     Task<bool> BeginTransactionAsync();

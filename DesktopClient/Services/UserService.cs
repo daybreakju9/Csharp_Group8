@@ -62,5 +62,23 @@ namespace ImageAnnotationApp.Services
                 throw new Exception($"删除用户失败: {ex.Message}", ex);
             }
         }
+
+        public async Task<UserDto> UpdateUserRoleAsync(int userId, string role)
+        {
+            try
+            {
+                var dto = new UpdateUserRoleDto { Role = role };
+                var result = await _httpClient.PutAsync<UserDto>($"users/{userId}/role", dto);
+                if (result == null)
+                {
+                    throw new Exception("更新用户角色失败：服务器返回空结果");
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"更新用户角色失败: {ex.Message}", ex);
+            }
+        }
     }
 }

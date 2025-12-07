@@ -1,9 +1,8 @@
-using Backend.Data;
 using Backend.DTOs;
-using Backend.Models;
+using Backend.Helpers;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Controllers;
 
@@ -12,11 +11,11 @@ namespace Backend.Controllers;
 [Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IUserService _userService;
 
-    public UsersController(AppDbContext context)
+    public UsersController(IUserService userService)
     {
-        _context = context;
+        _userService = userService;
     }
 
     /// <summary>
@@ -25,18 +24,7 @@ public class UsersController : ControllerBase
     [HttpGet("guests")]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetGuestUsers()
     {
-        var guestUsers = await _context.Users
-            .Where(u => u.Role == "Guest")
-            .OrderBy(u => u.CreatedAt)
-            .Select(u => new UserDto
-            {
-                Id = u.Id,
-                Username = u.Username,
-                Role = u.Role,
-                CreatedAt = u.CreatedAt
-            })
-            .ToListAsync();
-
+        var guestUsers = await _userService.GetGuestUsersAsync();
         return Ok(guestUsers);
     }
 
@@ -46,17 +34,7 @@ public class UsersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
     {
-        var users = await _context.Users
-            .OrderBy(u => u.CreatedAt)
-            .Select(u => new UserDto
-            {
-                Id = u.Id,
-                Username = u.Username,
-                Role = u.Role,
-                CreatedAt = u.CreatedAt
-            })
-            .ToListAsync();
-
+        var users = await _userService.GetAllAsync();
         return Ok(users);
     }
 
@@ -71,29 +49,19 @@ public class UsersController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var user = await _context.Users.FindAsync(approveDto.UserId);
-
-        if (user == null)
+        try
         {
-            return NotFound(new { message = "用户不存在" });
+            var user = await _userService.ApproveUserAsync(approveDto.UserId);
+            return Ok(user);
         }
-
-        if (user.Role != "Guest")
+        catch (ArgumentException ex)
         {
-            return BadRequest(new { message = "只能批准游客账号" });
+            return NotFound(new { message = ex.Message });
         }
-
-        // Upgrade user to regular User role
-        user.Role = "User";
-        await _context.SaveChangesAsync();
-
-        return Ok(new UserDto
+        catch (InvalidOperationException ex)
         {
-            Id = user.Id,
-            Username = user.Username,
-            Role = user.Role,
-            CreatedAt = user.CreatedAt
-        });
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -102,22 +70,20 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteUser(int id)
     {
-        var user = await _context.Users.FindAsync(id);
-
-        if (user == null)
+        try
         {
-            return NotFound(new { message = "用户不存在" });
-        }
+            var success = await _userService.DeleteUserAsync(id);
+            if (!success)
+            {
+                return NotFound(new { message = "用户不存在" });
+            }
 
-        if (user.Role == "Admin")
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = "不能删除管理员账号" });
+            return BadRequest(new { message = ex.Message });
         }
-
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
     }
 
     /// <summary>
@@ -131,29 +97,19 @@ public class UsersController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var user = await _context.Users.FindAsync(id);
-
-        if (user == null)
+        try
         {
-            return NotFound(new { message = "用户不存在" });
+            var currentUserId = this.GetUserId();
+            var user = await _userService.UpdateUserRoleAsync(id, updateDto.Role, currentUserId);
+            return Ok(user);
         }
-
-        // Prevent changing own role (admin shouldn't be able to demote themselves)
-        var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
-        if (user.Id == currentUserId)
+        catch (ArgumentException ex)
         {
-            return BadRequest(new { message = "不能修改自己的角色" });
+            return BadRequest(new { message = ex.Message });
         }
-
-        user.Role = updateDto.Role;
-        await _context.SaveChangesAsync();
-
-        return Ok(new UserDto
+        catch (InvalidOperationException ex)
         {
-            Id = user.Id,
-            Username = user.Username,
-            Role = user.Role,
-            CreatedAt = user.CreatedAt
-        });
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }
