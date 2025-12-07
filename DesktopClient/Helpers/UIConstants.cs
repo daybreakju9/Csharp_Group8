@@ -34,12 +34,23 @@ namespace ImageAnnotationApp.Helpers
             public static readonly Color Panel = Color.White;
         }
 
+        // ========== 导航与布局 ==========
+        public static class Navigation
+        {
+            // 侧边栏默认宽度（像素），可以在主窗体里作为最小/默认值使用
+            public const int NavWidth = 220;
+            // 较宽侧栏（大屏使用）
+            public const int NavWidthLarge = 260;
+        }
+
         // ========== 按钮尺寸 ==========
         public static class ButtonSizes
         {
-            public static readonly Size Small = new Size(80, 25);
-            public static readonly Size Medium = new Size(100, 30);
-            public static readonly Size Large = new Size(150, 35);
+            // 触控友好高度 >= 44px
+            public static readonly Size Small = new Size(80, 28);
+            public static readonly Size Medium = new Size(110, 36);
+            public static readonly Size Large = new Size(150, 44);
+            public static readonly Size TouchFriendlyLarge = new Size(170, 48);
         }
 
         // ========== 窗口尺寸 ==========
@@ -82,7 +93,6 @@ namespace ImageAnnotationApp.Helpers
         // ========== 通用提示信息 ==========
         public static class Messages
         {
-            // 成功消息
             public const string CreateSuccess = "创建成功";
             public const string UpdateSuccess = "更新成功";
             public const string DeleteSuccess = "删除成功";
@@ -90,7 +100,6 @@ namespace ImageAnnotationApp.Helpers
             public const string SubmitSuccess = "提交成功";
             public const string ExportSuccess = "导出完成";
 
-            // 错误消息
             public const string LoadFailed = "加载失败";
             public const string CreateFailed = "创建失败";
             public const string UpdateFailed = "更新失败";
@@ -99,12 +108,10 @@ namespace ImageAnnotationApp.Helpers
             public const string SubmitFailed = "提交失败";
             public const string ExportFailed = "导出失败";
 
-            // 警告消息
             public const string SelectItem = "请选择项目";
             public const string FillRequired = "请填写完整信息";
             public const string NoPermission = "您没有权限执行此操作";
 
-            // 确认消息
             public const string ConfirmDelete = "确定要删除吗？";
         }
 

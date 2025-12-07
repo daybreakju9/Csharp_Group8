@@ -4,6 +4,15 @@ namespace ImageAnnotationApp.Forms
     {
         private System.ComponentModel.IContainer components = null;
 
+        // 新增：左侧导航控件（在 Designer 中声明，以便不再依赖运行时创建）
+        private System.Windows.Forms.Panel panelNav;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanelNav;
+        private System.Windows.Forms.Button navBtnProjects;
+        private System.Windows.Forms.Button navBtnAdminProjects;
+        private System.Windows.Forms.Button navBtnAdminQueues;
+        private System.Windows.Forms.Button navBtnAdminUsers;
+        private System.Windows.Forms.Button navBtnAdminExport;
+
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -33,10 +42,22 @@ namespace ImageAnnotationApp.Forms
             this.btnAdminEntry = new System.Windows.Forms.Button();
             this.btnUserEntry = new System.Windows.Forms.Button();
             this.lblWelcome = new System.Windows.Forms.Label();
+
+            // 新增导航控件初始化
+            this.panelNav = new System.Windows.Forms.Panel();
+            this.flowLayoutPanelNav = new System.Windows.Forms.FlowLayoutPanel();
+            this.navBtnProjects = new System.Windows.Forms.Button();
+            this.navBtnAdminProjects = new System.Windows.Forms.Button();
+            this.navBtnAdminQueues = new System.Windows.Forms.Button();
+            this.navBtnAdminUsers = new System.Windows.Forms.Button();
+            this.navBtnAdminExport = new System.Windows.Forms.Button();
+
             this.menuStrip.SuspendLayout();
             this.statusStrip.SuspendLayout();
             this.panelMain.SuspendLayout();
             this.panelWelcome.SuspendLayout();
+            this.panelNav.SuspendLayout();
+            this.flowLayoutPanelNav.SuspendLayout();
             this.SuspendLayout();
             //
             // menuStrip
@@ -209,25 +230,142 @@ namespace ImageAnnotationApp.Forms
             this.lblWelcome.Text = "欢迎使用图片标注系统";
             this.lblWelcome.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             //
-            // MainForm
+            // panelNav (新增左侧导航面板)
+            //
+            this.panelNav.BackColor = System.Drawing.Color.White;
+            this.panelNav.Controls.Add(this.flowLayoutPanelNav);
+            this.panelNav.Dock = System.Windows.Forms.DockStyle.Left;
+            this.panelNav.Location = new System.Drawing.Point(0, 25);
+            this.panelNav.Name = "panelNav";
+            this.panelNav.Padding = new System.Windows.Forms.Padding(8);
+            this.panelNav.Size = new System.Drawing.Size(220, 703);
+            this.panelNav.TabIndex = 10;
+            //
+            // flowLayoutPanelNav
+            //
+            this.flowLayoutPanelNav.AutoScroll = true;
+            this.flowLayoutPanelNav.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flowLayoutPanelNav.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
+            this.flowLayoutPanelNav.WrapContents = false;
+            this.flowLayoutPanelNav.Location = new System.Drawing.Point(8, 8);
+            this.flowLayoutPanelNav.Name = "flowLayoutPanelNav";
+            this.flowLayoutPanelNav.Size = new System.Drawing.Size(204, 687);
+            this.flowLayoutPanelNav.TabIndex = 0;
+            //
+            // navBtnProjects
+            //
+            this.navBtnProjects.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
+            this.navBtnProjects.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.navBtnProjects.ForeColor = System.Drawing.Color.White;
+            this.navBtnProjects.Location = new System.Drawing.Point(3, 3);
+            this.navBtnProjects.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
+            this.navBtnProjects.Name = "navBtnProjects";
+            this.navBtnProjects.Size = new System.Drawing.Size(190, 40);
+            this.navBtnProjects.TabIndex = 0;
+            this.navBtnProjects.Text = "项目列表";
+            this.navBtnProjects.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.navBtnProjects.UseVisualStyleBackColor = false;
+            this.navBtnProjects.Click += new System.EventHandler(this.menuProjects_Click);
+            //
+            // navBtnAdminProjects
+            //
+            this.navBtnAdminProjects.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(75)))), ((int)(((byte)(75)))));
+            this.navBtnAdminProjects.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.navBtnAdminProjects.ForeColor = System.Drawing.Color.White;
+            this.navBtnAdminProjects.Location = new System.Drawing.Point(3, 54);
+            this.navBtnAdminProjects.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
+            this.navBtnAdminProjects.Name = "navBtnAdminProjects";
+            this.navBtnAdminProjects.Size = new System.Drawing.Size(190, 36);
+            this.navBtnAdminProjects.TabIndex = 1;
+            this.navBtnAdminProjects.Text = "项目管理";
+            this.navBtnAdminProjects.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.navBtnAdminProjects.UseVisualStyleBackColor = false;
+            this.navBtnAdminProjects.Visible = false;
+            this.navBtnAdminProjects.Click += new System.EventHandler(this.menuAdminProjects_Click);
+            //
+            // navBtnAdminQueues
+            //
+            this.navBtnAdminQueues.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(75)))), ((int)(((byte)(75)))));
+            this.navBtnAdminQueues.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.navBtnAdminQueues.ForeColor = System.Drawing.Color.White;
+            this.navBtnAdminQueues.Location = new System.Drawing.Point(3, 98);
+            this.navBtnAdminQueues.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
+            this.navBtnAdminQueues.Name = "navBtnAdminQueues";
+            this.navBtnAdminQueues.Size = new System.Drawing.Size(190, 36);
+            this.navBtnAdminQueues.TabIndex = 2;
+            this.navBtnAdminQueues.Text = "队列管理";
+            this.navBtnAdminQueues.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.navBtnAdminQueues.UseVisualStyleBackColor = false;
+            this.navBtnAdminQueues.Visible = false;
+            this.navBtnAdminQueues.Click += new System.EventHandler(this.menuAdminQueues_Click);
+            //
+            // navBtnAdminUsers
+            //
+            this.navBtnAdminUsers.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(75)))), ((int)(((byte)(75)))));
+            this.navBtnAdminUsers.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.navBtnAdminUsers.ForeColor = System.Drawing.Color.White;
+            this.navBtnAdminUsers.Location = new System.Drawing.Point(3, 142);
+            this.navBtnAdminUsers.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
+            this.navBtnAdminUsers.Name = "navBtnAdminUsers";
+            this.navBtnAdminUsers.Size = new System.Drawing.Size(190, 36);
+            this.navBtnAdminUsers.TabIndex = 3;
+            this.navBtnAdminUsers.Text = "用户管理";
+            this.navBtnAdminUsers.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.navBtnAdminUsers.UseVisualStyleBackColor = false;
+            this.navBtnAdminUsers.Visible = false;
+            this.navBtnAdminUsers.Click += new System.EventHandler(this.menuAdminUsers_Click);
+            //
+            // navBtnAdminExport
+            //
+            this.navBtnAdminExport.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(75)))), ((int)(((byte)(75)))));
+            this.navBtnAdminExport.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.navBtnAdminExport.ForeColor = System.Drawing.Color.White;
+            this.navBtnAdminExport.Location = new System.Drawing.Point(3, 186);
+            this.navBtnAdminExport.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
+            this.navBtnAdminExport.Name = "navBtnAdminExport";
+            this.navBtnAdminExport.Size = new System.Drawing.Size(190, 36);
+            this.navBtnAdminExport.TabIndex = 4;
+            this.navBtnAdminExport.Text = "数据导出";
+            this.navBtnAdminExport.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.navBtnAdminExport.UseVisualStyleBackColor = false;
+            this.navBtnAdminExport.Visible = false;
+            this.navBtnAdminExport.Click += new System.EventHandler(this.menuAdminExport_Click);
+
+            // 把导航按钮加到 flowLayoutPanel
+            this.flowLayoutPanelNav.Controls.Add(this.navBtnProjects);
+            this.flowLayoutPanelNav.Controls.Add(this.navBtnAdminProjects);
+            this.flowLayoutPanelNav.Controls.Add(this.navBtnAdminQueues);
+            this.flowLayoutPanelNav.Controls.Add(this.navBtnAdminUsers);
+            this.flowLayoutPanelNav.Controls.Add(this.navBtnAdminExport);
+
+            //
+            // MainForm - Controls 顺序：menuStrip, statusStrip, panelNav, panelMain
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1000, 750);
+
+            // 先清理旧的 Controls 添加，按正确顺序添加避免遮盖
+            this.Controls.Clear();
             this.Controls.Add(this.panelMain);
+            this.Controls.Add(this.panelNav);
             this.Controls.Add(this.statusStrip);
             this.Controls.Add(this.menuStrip);
+
             this.MainMenuStrip = this.menuStrip;
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "图片标注系统";
             this.Load += new System.EventHandler(this.MainForm_Load);
+
             this.menuStrip.ResumeLayout(false);
             this.menuStrip.PerformLayout();
             this.statusStrip.ResumeLayout(false);
             this.statusStrip.PerformLayout();
             this.panelMain.ResumeLayout(false);
             this.panelWelcome.ResumeLayout(false);
+            this.panelNav.ResumeLayout(false);
+            this.flowLayoutPanelNav.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
         }

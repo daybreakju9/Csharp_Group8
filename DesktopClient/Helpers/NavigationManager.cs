@@ -5,14 +5,13 @@ using ImageAnnotationApp.Forms;
 
 namespace ImageAnnotationApp.Helpers
 {
-    /// <summary>
-    /// 窗体导航管理器，统一管理所有窗体的加载和导航
-    /// </summary>
+   
+    /// 窗体/控件导航管理器，统一管理所有页面的加载和导航
     public class NavigationManager
     {
         private readonly MainForm _mainForm;
         private readonly Panel _mainPanel;
-        private readonly Stack<Form> _navigationStack;
+        private readonly Stack<Control> _navigationStack;
         private readonly ToolStripStatusLabel _statusLabel;
 
         public NavigationManager(MainForm mainForm, Panel mainPanel, ToolStripStatusLabel statusLabel)
@@ -20,70 +19,64 @@ namespace ImageAnnotationApp.Helpers
             _mainForm = mainForm ?? throw new ArgumentNullException(nameof(mainForm));
             _mainPanel = mainPanel ?? throw new ArgumentNullException(nameof(mainPanel));
             _statusLabel = statusLabel ?? throw new ArgumentNullException(nameof(statusLabel));
-            _navigationStack = new Stack<Form>();
+            _navigationStack = new Stack<Control>();
         }
 
-        /// <summary>
-        /// 加载窗体到主面板，并将当前窗体压入导航栈
-        /// </summary>
+        /// 加载 Form（兼容旧代码），内部包装为 Control
         public void NavigateTo(Form form, bool addToStack = true)
         {
-            if (form == null)
-            {
-                throw new ArgumentNullException(nameof(form));
-            }
+            if (form == null) throw new ArgumentNullException(nameof(form));
+            var wrapped = WrapFormAsControl(form);
+            NavigateToControl(wrapped, addToStack);
+        }
+
+        /// 加载任意 Control
+        public void NavigateToControl(Control control, bool addToStack = true)
+        {
+            if (control == null) throw new ArgumentNullException(nameof(control));
 
             try
             {
-                // 如果需要添加到栈，保存当前窗体
                 if (addToStack && _mainPanel.Controls.Count > 0)
                 {
-                    var currentForm = _mainPanel.Controls[0] as Form;
-                    if (currentForm != null)
+                    var current = _mainPanel.Controls[0];
+                    if (current != null)
                     {
-                        _navigationStack.Push(currentForm);
+                        _navigationStack.Push(current);
                     }
                 }
 
-                // 清空并加载新窗体
                 _mainPanel.Controls.Clear();
-                form.TopLevel = false;
-                form.FormBorderStyle = FormBorderStyle.None;
-                form.Dock = DockStyle.Fill;
-                _mainPanel.Controls.Add(form);
-                form.Show();
+                control.Dock = DockStyle.Fill;
+                _mainPanel.Controls.Add(control);
+                control.BringToFront();
 
-                // 更新状态栏
-                UpdateStatus($"已加载: {form.Text}");
+                UpdateStatus($"已加载: {GetControlTitle(control)}");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"加载窗体失败: {ex.Message}", "错误",
+                MessageBox.Show($"加载页面失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        /// <summary>
-        /// 返回到上一个窗体
-        /// </summary>
+        /// 返回到上一个页面  
         public void NavigateBack()
         {
             try
             {
                 if (_navigationStack.Count > 0)
                 {
-                    var previousForm = _navigationStack.Pop();
+                    var previous = _navigationStack.Pop();
 
-                    // 清空当前窗体并加载上一个窗体
+                    // 清理当前控件
                     _mainPanel.Controls.Clear();
-                    previousForm.TopLevel = false;
-                    previousForm.FormBorderStyle = FormBorderStyle.None;
-                    previousForm.Dock = DockStyle.Fill;
-                    _mainPanel.Controls.Add(previousForm);
-                    previousForm.Show();
 
-                    // 更新状态栏
-                    UpdateStatus($"返回到: {previousForm.Text}");
+                    previous.Dock = DockStyle.Fill;
+                    _mainPanel.Controls.Add(previous);
+                    previous.BringToFront();
+
+                    UpdateStatus($"返回到: {GetControlTitle(previous)}");
                 }
                 else
                 {
@@ -98,18 +91,20 @@ namespace ImageAnnotationApp.Helpers
             }
         }
 
-        /// <summary>
-        /// 清空导航栈并加载新窗体（用于主菜单导航）
-        /// </summary>
+        /// 清空导航栈并加载新页面（用于主菜单导航）
+        public void NavigateToRoot(Control control)
+        {
+            _navigationStack.Clear();
+            NavigateToControl(control, addToStack: false);
+        }
+
         public void NavigateToRoot(Form form)
         {
             _navigationStack.Clear();
             NavigateTo(form, addToStack: false);
         }
 
-        /// <summary>
         /// 更新状态栏
-        /// </summary>
         public void UpdateStatus(string message)
         {
             if (_statusLabel != null && !_statusLabel.IsDisposed)
@@ -118,20 +113,29 @@ namespace ImageAnnotationApp.Helpers
             }
         }
 
-        /// <summary>
-        /// 获取当前导航栈深度
-        /// </summary>
-        public int GetNavigationDepth()
+        public int GetNavigationDepth() => _navigationStack.Count;
+
+        public MainForm GetMainForm() => _mainForm;
+
+        // ========== 辅助 ==========
+
+        private Control WrapFormAsControl(Form form)
         {
-            return _navigationStack.Count;
+            form.TopLevel = false;
+            form.FormBorderStyle = FormBorderStyle.None;
+            form.Dock = DockStyle.Fill;
+            var host = new Panel { Dock = DockStyle.Fill };
+            host.Controls.Add(form);
+            form.Show();
+            return host;
         }
 
-        /// <summary>
-        /// 获取MainForm实例
-        /// </summary>
-        public MainForm GetMainForm()
+        private string GetControlTitle(Control ctrl)
         {
-            return _mainForm;
+            if (ctrl is Panel p && p.Controls.Count > 0 && p.Controls[0] is Form f)
+                return f.Text;
+            if (ctrl is Form form) return form.Text;
+            return ctrl.Name ?? ctrl.GetType().Name;
         }
     }
 }
