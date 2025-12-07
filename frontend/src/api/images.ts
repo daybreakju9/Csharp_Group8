@@ -74,93 +74,47 @@ export const imagesApi = {
     return response.data
   },
 
-  // 并行上传多张图片
-  importImagesParallel: async (
+  // 批量上传（后端一次性处理，支持跳过已存在）
+  uploadBatch: async (
     queueId: number,
     files: File[],
     folderNames: string[],
-    onFileProgress?: (fileIndex: number, progress: number) => void,
-    onOverallProgress?: (completed: number, total: number) => void,
-    concurrency: number = 5
-  ): Promise<{ message: string; successCount: number; failedCount: number; errors: string[] }> => {
+    onUploadProgress?: (progress: number) => void
+  ): Promise<{
+    message: string
+    successCount: number
+    skippedCount: number
+    failureCount: number
+    errors: string[]
+    skippedFiles: string[]
+  }> => {
     if (files.length !== folderNames.length) {
       throw new Error('文件和文件夹名称数量不匹配')
     }
 
-    const total = files.length
-    let completed = 0
-    let successCount = 0
-    let failedCount = 0
-    const errors: string[] = []
-    
-    // 创建上传任务
-    const uploadTasks = files.map((file, index) => ({
-      file,
-      folderName: folderNames[index],
-      index
-    }))
+    const formData = new FormData()
+    formData.append('queueId', queueId.toString())
+    files.forEach((file) => formData.append('files', file))
+    folderNames.forEach((name) => formData.append('folderNames', name))
 
-    // 并发控制：使用 Promise 队列限制并发数
-    const executeWithLimit = async (tasks: typeof uploadTasks) => {
-      const executing: Promise<void>[] = []
-      
-      for (const task of tasks) {
-        // 创建promise并立即添加到executing数组
-        let promiseRef: Promise<void> | null = null
-        
-        const promise = (async () => {
-          try {
-            await imagesApi.importSingleImage(
-              queueId,
-              task.file,
-              task.folderName,
-              (progress) => {
-                if (onFileProgress) {
-                  onFileProgress(task.index, progress)
-                }
-              }
-            )
-            successCount++
-          } catch (error: any) {
-            failedCount++
-            const errorMsg = `${task.file.name}: ${error.response?.data?.message || error.message || '上传失败'}`
-            errors.push(errorMsg)
-            console.error(`文件 ${task.file.name} 上传失败:`, error)
-          } finally {
-            completed++
-            if (onOverallProgress) {
-              onOverallProgress(completed, total)
-            }
-            // 从executing数组中移除自己
-            if (promiseRef) {
-              const index = executing.indexOf(promiseRef)
-              if (index > -1) {
-                executing.splice(index, 1)
-              }
-            }
-          }
-        })()
-        
-        promiseRef = promise
-        executing.push(promise)
-        
-        // 当达到并发限制时，等待任意一个完成
-        if (executing.length >= concurrency) {
-          await Promise.race(executing)
+    const response = await apiClient.post('/images/upload-batch', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
+      onUploadProgress: (evt) => {
+        if (onUploadProgress && evt.total) {
+          onUploadProgress(Math.round((evt.loaded * 100) / evt.total))
         }
-      }
-      
-      // 等待所有剩余任务完成
-      await Promise.all(executing)
-    }
+      },
+    })
 
-    await executeWithLimit(uploadTasks)
-
+    const data = response.data as any
     return {
-      message: `上传完成：成功 ${successCount} 个，失败 ${failedCount} 个`,
-      successCount,
-      failedCount,
-      errors
+      message: data.message ?? '上传完成',
+      successCount: data.successCount ?? 0,
+      skippedCount: data.skippedCount ?? 0,
+      failureCount: data.failureCount ?? 0,
+      errors: data.errors ?? [],
+      skippedFiles: data.skippedFiles ?? [],
     }
   },
 

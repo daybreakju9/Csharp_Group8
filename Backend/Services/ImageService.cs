@@ -1,6 +1,7 @@
 using Backend.DTOs;
 using Backend.Models;
 using Backend.Repositories;
+using System.Collections.Concurrent;
 
 namespace Backend.Services;
 
@@ -10,6 +11,7 @@ public class ImageService : IImageService
     private readonly IFileStorageService _fileStorage;
     private readonly IImageProcessingService _imageProcessing;
     private readonly IImageGroupService _imageGroupService;
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> QueueLocks = new();
 
     public ImageService(
         IUnitOfWork unitOfWork,
@@ -53,8 +55,11 @@ public class ImageService : IImageService
         return (dtos, totalCount);
     }
 
-    public async Task<ImageDto> UploadAsync(int queueId, string folderName, string fileName, Stream fileStream)
+    public async Task<(ImageDto Image, bool IsDuplicate)> UploadAsync(int queueId, string folderName, string fileName, Stream fileStream)
     {
+        var queueLock = QueueLocks.GetOrAdd(queueId, _ => new SemaphoreSlim(1, 1));
+        await queueLock.WaitAsync();
+
         // 开始事务
         await _unitOfWork.BeginTransactionAsync();
 
@@ -70,11 +75,12 @@ public class ImageService : IImageService
             // 提取图片元数据
             var metadata = await _imageProcessing.ExtractMetadataAsync(fileStream, fileName);
 
-            // 检查是否已存在相同哈希的图片（去重）
-            var existingImage = await _unitOfWork.Images.GetByFileHashAsync(metadata.FileHash);
+            // 同队列去重：存在则直接返回
+            var existingImage = await _unitOfWork.Images.GetByQueueAndHashAsync(queueId, metadata.FileHash!);
             if (existingImage != null)
             {
-                throw new InvalidOperationException($"图片已存在: {existingImage.FileName}");
+                await _unitOfWork.RollbackTransactionAsync();
+                return (MapToDto(existingImage), true);
             }
 
             // 保存文件
@@ -122,12 +128,16 @@ public class ImageService : IImageService
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
 
-            return MapToDto(image);
+            return (MapToDto(image), false);
         }
         catch
         {
             await _unitOfWork.RollbackTransactionAsync();
             throw;
+        }
+        finally
+        {
+            queueLock.Release();
         }
     }
 
@@ -136,6 +146,9 @@ public class ImageService : IImageService
         Dictionary<string, List<(string fileName, Stream fileStream)>> folderFiles)
     {
         var result = new UploadResult();
+
+        var queueLock = QueueLocks.GetOrAdd(queueId, _ => new SemaphoreSlim(1, 1));
+        await queueLock.WaitAsync();
 
         // 开始事务
         await _unitOfWork.BeginTransactionAsync();
@@ -149,23 +162,33 @@ public class ImageService : IImageService
                 throw new ArgumentException("队列不存在");
             }
 
-            // 按文件名分组（同名文件来自不同文件夹）
-            var fileGroups = new Dictionary<string, List<(string folderName, string fileName, Stream fileStream)>>();
-
+            // 预处理：按文件名分组，提取元数据与哈希
+            var fileGroups = new Dictionary<string, List<PreparedFile>>();
             foreach (var kvp in folderFiles)
             {
                 var folderName = kvp.Key;
                 foreach (var (fileName, fileStream) in kvp.Value)
                 {
+                    var metadata = await _imageProcessing.ExtractMetadataAsync(fileStream, fileName);
                     if (!fileGroups.ContainsKey(fileName))
                     {
-                        fileGroups[fileName] = new List<(string, string, Stream)>();
+                        fileGroups[fileName] = new List<PreparedFile>();
                     }
-                    fileGroups[fileName].Add((folderName, fileName, fileStream));
+                    fileGroups[fileName].Add(new PreparedFile
+                    {
+                        FolderName = folderName,
+                        FileName = fileName,
+                        Stream = fileStream,
+                        Metadata = metadata
+                    });
                 }
             }
 
-            // 按组处理文件
+            // 去重：同队列哈希重复则跳过
+            var allHashes = fileGroups.Values.SelectMany(v => v.Select(f => f.Metadata.FileHash!)).Distinct();
+            var existingHashes = await _unitOfWork.Images.GetHashesByQueueAsync(queueId, allHashes);
+
+            // 处理文件
             foreach (var group in fileGroups)
             {
                 var groupName = group.Key;
@@ -182,43 +205,50 @@ public class ImageService : IImageService
                         continue;
                     }
 
-                    // 上传组内的每个文件
                     var displayOrder = imageGroup.ImageCount;
 
-                    foreach (var (folderName, fileName, fileStream) in files)
+                    foreach (var prepared in files)
                     {
                         try
                         {
-                            // 提取元数据
-                            var metadata = await _imageProcessing.ExtractMetadataAsync(fileStream, fileName);
+                            if (existingHashes.Contains(prepared.Metadata.FileHash!))
+                            {
+                                result.SkippedCount++;
+                                if (result.SkippedFiles.Count < 50)
+                                {
+                                    result.SkippedFiles.Add($"{prepared.FolderName}/{prepared.FileName}");
+                                }
+                                continue;
+                            }
 
                             // 保存文件
-                            fileStream.Position = 0;
-                            var filePath = await _fileStorage.SaveFileAsync(fileStream, fileName, queueId.ToString());
+                            prepared.Stream.Position = 0;
+                            var filePath = await _fileStorage.SaveFileAsync(prepared.Stream, prepared.FileName, queueId.ToString());
 
                             // 创建图片实体
                             var image = new Image
                             {
                                 QueueId = queueId,
                                 ImageGroupId = imageGroup.Id,
-                                FolderName = folderName,
-                                FileName = fileName,
+                                FolderName = prepared.FolderName,
+                                FileName = prepared.FileName,
                                 FilePath = filePath,
                                 DisplayOrder = displayOrder++,
-                                FileSize = metadata.FileSize,
-                                Width = metadata.Width,
-                                Height = metadata.Height,
-                                FileHash = metadata.FileHash,
+                                FileSize = prepared.Metadata.FileSize,
+                                Width = prepared.Metadata.Width,
+                                Height = prepared.Metadata.Height,
+                                FileHash = prepared.Metadata.FileHash,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             };
 
                             await _unitOfWork.Images.AddAsync(image);
+                            existingHashes.Add(prepared.Metadata.FileHash!);
                             result.SuccessCount++;
                         }
                         catch (Exception ex)
                         {
-                            result.Errors.Add($"{folderName}/{fileName}: {ex.Message}");
+                            result.Errors.Add($"{prepared.FolderName}/{prepared.FileName}: {ex.Message}");
                             result.FailureCount++;
                         }
                     }
@@ -251,6 +281,10 @@ public class ImageService : IImageService
             await _unitOfWork.RollbackTransactionAsync();
             result.Errors.Add($"批量上传失败: {ex.Message}");
             return result;
+        }
+        finally
+        {
+            queueLock.Release();
         }
     }
 
@@ -399,5 +433,13 @@ public class ImageService : IImageService
             FileHash = image.FileHash,
             CreatedAt = image.CreatedAt
         };
+    }
+
+    private class PreparedFile
+    {
+        public string FolderName { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public Stream Stream { get; set; } = Stream.Null;
+        public ImageMetadata Metadata { get; set; } = new ImageMetadata();
     }
 }

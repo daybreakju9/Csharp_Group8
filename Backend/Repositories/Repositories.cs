@@ -113,6 +113,23 @@ public class ImageRepository : Repository<Image>, IImageRepository
             .FirstOrDefaultAsync(i => i.FileHash == fileHash);
     }
 
+    public async Task<Image?> GetByQueueAndHashAsync(int queueId, string fileHash)
+    {
+        return await _context.Images
+            .FirstOrDefaultAsync(i => i.QueueId == queueId && i.FileHash == fileHash);
+    }
+
+    public async Task<HashSet<string>> GetHashesByQueueAsync(int queueId, IEnumerable<string> hashes)
+    {
+        var hashList = hashes.Distinct().ToList();
+        var existing = await _context.Images
+            .Where(i => i.QueueId == queueId && hashList.Contains(i.FileHash!))
+            .Select(i => i.FileHash!)
+            .ToListAsync();
+
+        return existing.ToHashSet();
+    }
+
     public async Task<int> GetTotalSizeByQueueIdAsync(int queueId)
     {
         return await _context.Images

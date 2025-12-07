@@ -28,6 +28,8 @@ public interface IImageRepository : IRepository<Image>
     Task<IEnumerable<Image>> GetByQueueIdAsync(int queueId);
     Task<IEnumerable<Image>> GetByImageGroupIdAsync(int imageGroupId);
     Task<Image?> GetByFileHashAsync(string fileHash);
+    Task<Image?> GetByQueueAndHashAsync(int queueId, string fileHash);
+    Task<HashSet<string>> GetHashesByQueueAsync(int queueId, IEnumerable<string> hashes);
     Task<int> GetTotalSizeByQueueIdAsync(int queueId);
 }
 
