@@ -93,6 +93,7 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.ImageGroupId);
             entity.HasIndex(e => new { e.ImageGroupId, e.DisplayOrder });
             entity.HasIndex(e => e.FileHash);
+            entity.HasIndex(e => new { e.QueueId, e.FileHash }).IsUnique();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });

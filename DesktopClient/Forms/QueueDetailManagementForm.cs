@@ -1,6 +1,9 @@
 using ImageAnnotationApp.Models;
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Helpers;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace ImageAnnotationApp.Forms
 {
@@ -86,12 +89,21 @@ namespace ImageAnnotationApp.Forms
 
             var btnImport = new ToolStripButton
             {
-                Text = "导入图片",
+                Text = "批量导入文件夹",
                 Image = null,
                 DisplayStyle = ToolStripItemDisplayStyle.Text,
                 Font = new Font("Microsoft YaHei UI", 9F)
             };
-            btnImport.Click += BtnImport_Click;
+            btnImport.Click += async (s, e) => await ImportFromFoldersAsync();
+
+            var btnImportFiles = new ToolStripButton
+            {
+                Text = "批量导入图片",
+                Image = null,
+                DisplayStyle = ToolStripItemDisplayStyle.Text,
+                Font = new Font("Microsoft YaHei UI", 9F)
+            };
+            btnImportFiles.Click += async (s, e) => await ImportFromFilesAsync();
 
             var btnRefresh = new ToolStripButton
             {
@@ -119,6 +131,7 @@ namespace ImageAnnotationApp.Forms
             btnBack.Click += (s, e) => this.Close();
 
             toolStrip.Items.Add(btnImport);
+            toolStrip.Items.Add(btnImportFiles);
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.Add(btnRefresh);
             toolStrip.Items.Add(btnDeleteSelected);
@@ -578,20 +591,211 @@ namespace ImageAnnotationApp.Forms
             dialog.ShowDialog();
         }
 
-        private void BtnImport_Click(object? sender, EventArgs e)
+        private async Task ImportFromFoldersAsync()
         {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "选择包含待导入文件夹的目录（可直接选中包含多个子文件夹的上级目录）"
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            var root = dialog.SelectedPath;
+            var candidateFolders = Directory.GetDirectories(root);
+            if (candidateFolders.Length == 0)
+            {
+                candidateFolders = new[] { root };
+            }
+
+            var folderFiles = new Dictionary<string, List<string>>();
+            foreach (var dir in candidateFolders)
+            {
+                var folderName = Path.GetFileName(dir);
+                var files = Directory.GetFiles(dir, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(f => IsSupportedImage(f))
+                    .ToList();
+
+                if (files.Count == 0)
+                {
+                    continue;
+                }
+
+                if (files.Count > 0)
+                {
+                    folderFiles[folderName] = files;
+                }
+            }
+
+            if (folderFiles.Count == 0)
+            {
+                MessageBox.Show("未找到可上传的图片，请检查所选目录下的子文件夹或文件。", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Cursor.Current = Cursors.WaitCursor;
             try
             {
-                var importForm = new ImageImportForm(_queue);
-                if (importForm.ShowDialog() == DialogResult.OK)
+                var progress = new Progress<ParallelUploadProgress>(p =>
                 {
-                    _ = LoadQueueInfoAsync();
+                    lblQueueInfo.Text = $"{_queue.Name} | 上传进度: {p.CompletedFiles}/{p.TotalFiles} ({p.Percentage:F1}%)";
+                });
+
+                var result = await _imageService.UploadImagesParallelAsync(
+                    _queue.Id,
+                    folderFiles,
+                    maxConcurrency: 5,
+                    progress);
+
+                var summary = $"成功: {result.SuccessCount}，已存在跳过: {result.SkippedCount}，失败: {result.FailureCount}";
+                if (result.FailureCount == 0)
+                {
+                    MessageBox.Show($"导入完成！\n{summary}", "导入完成",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
+                else
+                {
+                    MessageBox.Show($"导入结束。\n{summary}", "导入完成（部分失败）",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+
+                if (result.Errors.Count > 0)
+                {
+                    var errorMsg = string.Join("\n", result.Errors.Take(10));
+                    if (result.Errors.Count > 10)
+                        errorMsg += $"\n... 还有 {result.Errors.Count - 10} 个错误";
+                    MessageBox.Show($"错误详情:\n{errorMsg}", "上传错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+
+                if (result.SkippedFiles.Count > 0)
+                {
+                    var skipMsg = string.Join("\n", result.SkippedFiles.Take(10));
+                    if (result.SkippedFiles.Count > 10)
+                        skipMsg += $"\n... 还有 {result.SkippedFiles.Count - 10} 个已存在文件";
+                    MessageBox.Show($"以下文件已存在，已跳过：\n{skipMsg}", "已跳过",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                await LoadQueueInfoAsync();
+                await LoadDataAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"打开导入界面失败: {ex.Message}", "错误",
+                MessageBox.Show($"导入失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+                lblQueueInfo.Text = $"{_queue.Name} | 对比图片数: {_queue.ComparisonCount} | 总图片数: {_queue.TotalImageCount}";
+            }
+        }
+
+        private async Task ImportFromFilesAsync()
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "选择要导入的图片（可多选）",
+                Multiselect = true,
+                Filter = "Images|*.jpg;*.jpeg;*.png;*.gif;*.webp|All files|*.*"
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+                return;
+
+            var files = dialog.FileNames.Where(IsSupportedImage).ToList();
+            if (files.Count == 0)
+            {
+                MessageBox.Show("未选择可用的图片文件。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var folderFiles = new Dictionary<string, List<string>>();
+            foreach (var file in files)
+            {
+                try
+                {
+                    var folderName = Path.GetFileName(Path.GetDirectoryName(file) ?? "default");
+                    if (!folderFiles.ContainsKey(folderName))
+                    {
+                        folderFiles[folderName] = new List<string>();
+                    }
+                    folderFiles[folderName].Add(file);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"读取文件失败: {file}\n{ex.Message}", "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+
+            if (folderFiles.Count == 0)
+            {
+                MessageBox.Show("未找到可上传的图片。", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Cursor.Current = Cursors.WaitCursor;
+            try
+            {
+                var progress = new Progress<ParallelUploadProgress>(p =>
+                {
+                    lblQueueInfo.Text = $"{_queue.Name} | 上传进度: {p.CompletedFiles}/{p.TotalFiles} ({p.Percentage:F1}%)";
+                });
+
+                var result = await _imageService.UploadImagesParallelAsync(
+                    _queue.Id,
+                    folderFiles,
+                    maxConcurrency: 5,
+                    progress);
+
+                var summary = $"成功: {result.SuccessCount}，已存在跳过: {result.SkippedCount}，失败: {result.FailureCount}";
+                if (result.FailureCount == 0)
+                {
+                    MessageBox.Show($"导入完成！\n{summary}", "导入完成",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show($"导入结束。\n{summary}", "导入完成（部分失败）",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+
+                if (result.Errors.Count > 0)
+                {
+                    var errorMsg = string.Join("\n", result.Errors.Take(10));
+                    if (result.Errors.Count > 10)
+                        errorMsg += $"\n... 还有 {result.Errors.Count - 10} 个错误";
+                    MessageBox.Show($"错误详情:\n{errorMsg}", "上传错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+
+                if (result.SkippedFiles.Count > 0)
+                {
+                    var skipMsg = string.Join("\n", result.SkippedFiles.Take(10));
+                    if (result.SkippedFiles.Count > 10)
+                        skipMsg += $"\n... 还有 {result.SkippedFiles.Count - 10} 个已存在文件";
+                    MessageBox.Show($"以下文件已存在，已跳过：\n{skipMsg}", "已跳过",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                await LoadQueueInfoAsync();
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导入失败: {ex.Message}", "错误",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+                lblQueueInfo.Text = $"{_queue.Name} | 对比图片数: {_queue.ComparisonCount} | 总图片数: {_queue.TotalImageCount}";
             }
         }
 
@@ -702,6 +906,12 @@ namespace ImageAnnotationApp.Forms
             {
                 this.Cursor = Cursors.Default;
             }
+        }
+
+        private bool IsSupportedImage(string filePath)
+        {
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp";
         }
     }
 }

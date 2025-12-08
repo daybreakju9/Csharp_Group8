@@ -28,9 +28,9 @@ public interface IImageService
         int queueId, int pageNumber, int pageSize, string? searchTerm = null, int? groupId = null);
 
     /// <summary>
-    /// 上传单个图片
+    /// 上传单个图片，返回是否为重复文件（同一队列内）
     /// </summary>
-    Task<ImageDto> UploadAsync(int queueId, string folderName, string fileName, Stream fileStream);
+    Task<(ImageDto Image, bool IsDuplicate)> UploadAsync(int queueId, string folderName, string fileName, Stream fileStream);
 
     /// <summary>
     /// 批量上传图片
@@ -62,4 +62,6 @@ public class UploadResult
     public int FailureCount { get; set; }
     public List<string> Errors { get; set; } = new();
     public int TotalGroups { get; set; }
+    public int SkippedCount { get; set; }
+    public List<string> SkippedFiles { get; set; } = new();
 }

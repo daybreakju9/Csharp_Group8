@@ -121,12 +121,13 @@ public class ImagesController : ControllerBase
         try
         {
             using var stream = file.OpenReadStream();
-            var imageDto = await _imageService.UploadAsync(queueId, folderName, file.FileName, stream);
+            var (imageDto, isDuplicate) = await _imageService.UploadAsync(queueId, folderName, file.FileName, stream);
 
             return Ok(new
             {
-                message = "上传成功",
-                data = imageDto
+                message = isDuplicate ? "图片已存在，已跳过" : "上传成功",
+                data = imageDto,
+                isDuplicate
             });
         }
         catch (InvalidOperationException ex)
@@ -196,9 +197,11 @@ public class ImagesController : ControllerBase
             {
                 message = $"批量上传完成",
                 successCount = result.SuccessCount,
+                skippedCount = result.SkippedCount,
                 failureCount = result.FailureCount,
                 totalGroups = result.TotalGroups,
-                errors = result.Errors
+                errors = result.Errors,
+                skippedFiles = result.SkippedFiles
             });
         }
         catch (Exception ex)

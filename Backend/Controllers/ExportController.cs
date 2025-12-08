@@ -23,7 +23,6 @@ public class ExportController : ControllerBase
     public async Task<IActionResult> ExportSelections([FromQuery] int queueId, [FromQuery] string format = "csv")
     {
         var queue = await _context.Queues
-            .Include(q => q.Project)
             .FirstOrDefaultAsync(q => q.Id == queueId);
 
         if (queue == null)
@@ -38,7 +37,7 @@ public class ExportController : ControllerBase
             // Use streaming for large datasets
             return new FileCallbackResult("text/csv", fileName, async (outputStream, _) =>
             {
-                using var writer = new StreamWriter(outputStream, Encoding.UTF8);
+                await using var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true);
 
                 // Write CSV header
                 await writer.WriteLineAsync("用户ID,用户名,图片组,选择的文件夹,选择的文件名,选择时间");
@@ -51,10 +50,11 @@ public class ExportController : ControllerBase
                 while (hasMoreData)
                 {
                     var selections = await _context.SelectionRecords
+                        .IgnoreQueryFilters() // 包含已软删的图片，确保导出完整
                         .Include(s => s.User)
                         .Include(s => s.SelectedImage)
                         .Where(s => s.QueueId == queueId)
-                        .OrderBy(s => s.ImageGroup)
+                        .OrderBy(s => s.ImageGroupId)
                         .ThenBy(s => s.UserId)
                         .Skip(pageNumber * pageSize)
                         .Take(pageSize)
@@ -68,12 +68,17 @@ public class ExportController : ControllerBase
                     {
                         foreach (var selection in selections)
                         {
-                            await writer.WriteLineAsync($"{selection.UserId},{selection.User.Username},{selection.ImageGroup},{selection.SelectedImage.FolderName},{selection.SelectedImage.FileName},{selection.CreatedAt:yyyy-MM-dd HH:mm:ss}");
+                            var selectedImage = selection.SelectedImage;
+                            var folder = selectedImage?.FolderName ?? "";
+                            var fileNameOnly = selectedImage?.FileName ?? "";
+                            await writer.WriteLineAsync($"{selection.UserId},{selection.User.Username},{selection.ImageGroupId},{folder},{fileNameOnly},{selection.CreatedAt:yyyy-MM-dd HH:mm:ss}");
                         }
                         pageNumber++;
                         hasMoreData = selections.Count == pageSize;
                     }
                 }
+
+                await writer.FlushAsync();
             });
         }
         else if (format.ToLower() == "json")
@@ -83,7 +88,7 @@ public class ExportController : ControllerBase
             // Use streaming for JSON export as well
             return new FileCallbackResult("application/json", fileName, async (outputStream, _) =>
             {
-                using var writer = new StreamWriter(outputStream, Encoding.UTF8);
+                await using var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true);
 
                 await writer.WriteAsync("[");
 
@@ -95,10 +100,11 @@ public class ExportController : ControllerBase
                 while (hasMoreData)
                 {
                     var selections = await _context.SelectionRecords
+                        .IgnoreQueryFilters()
                         .Include(s => s.User)
                         .Include(s => s.SelectedImage)
                         .Where(s => s.QueueId == queueId)
-                        .OrderBy(s => s.ImageGroup)
+                        .OrderBy(s => s.ImageGroupId)
                         .ThenBy(s => s.UserId)
                         .Skip(pageNumber * pageSize)
                         .Take(pageSize)
@@ -122,10 +128,10 @@ public class ExportController : ControllerBase
                             {
                                 UserId = selection.UserId,
                                 Username = selection.User.Username,
-                                ImageGroup = selection.ImageGroup,
-                                SelectedFolderName = selection.SelectedImage.FolderName,
-                                SelectedFileName = selection.SelectedImage.FileName,
-                                SelectedFilePath = selection.SelectedImage.FilePath,
+                                ImageGroup = selection.ImageGroupId,
+                                SelectedFolderName = selection.SelectedImage?.FolderName,
+                                SelectedFileName = selection.SelectedImage?.FileName,
+                                SelectedFilePath = selection.SelectedImage?.FilePath,
                                 CreatedAt = selection.CreatedAt
                             });
                             await writer.WriteAsync(json);
@@ -136,6 +142,7 @@ public class ExportController : ControllerBase
                 }
 
                 await writer.WriteAsync("]");
+                await writer.FlushAsync();
             });
         }
         else
@@ -154,7 +161,7 @@ public class ExportController : ControllerBase
             // Use streaming for large datasets
             return new FileCallbackResult("text/csv", fileName, async (outputStream, _) =>
             {
-                using var writer = new StreamWriter(outputStream, Encoding.UTF8);
+                await using var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true);
 
                 // Write CSV header
                 await writer.WriteLineAsync("队列ID,队列名称,用户ID,用户名,已完成,总计,进度百分比,最后更新");
@@ -198,6 +205,8 @@ public class ExportController : ControllerBase
                         hasMoreData = progressList.Count == pageSize;
                     }
                 }
+
+                await writer.FlushAsync();
             });
         }
         else if (format.ToLower() == "json")
@@ -207,7 +216,7 @@ public class ExportController : ControllerBase
             // Use streaming for JSON export
             return new FileCallbackResult("application/json", fileName, async (outputStream, _) =>
             {
-                using var writer = new StreamWriter(outputStream, Encoding.UTF8);
+                await using var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true);
 
                 await writer.WriteAsync("[");
 
@@ -268,6 +277,7 @@ public class ExportController : ControllerBase
                 }
 
                 await writer.WriteAsync("]");
+                await writer.FlushAsync();
             });
         }
         else

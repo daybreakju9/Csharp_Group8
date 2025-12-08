@@ -1,32 +1,73 @@
 using Backend.Data;
+using Backend.Middleware;
 using Backend.Repositories;
 using Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 // Configure Kestrel server limits for file uploads
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500 MB
+    serverOptions.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024; // 2 GB
     serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
 });
 
 // Configure form options for multipart/form-data
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 500 * 1024 * 1024; // 500 MB
+    options.MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024; // 2 GB
     options.ValueLengthLimit = int.MaxValue;
+    options.ValueCountLimit = int.MaxValue;
     options.MultipartHeadersLengthLimit = int.MaxValue;
 });
 
 // Add services to the container
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("ModelValidation");
+
+        var errors = context.ModelState
+            .Where(e => e.Value?.Errors.Count > 0)
+            .Select(e => new
+            {
+                Field = e.Key,
+                Errors = e.Value!.Errors.Select(err => err.ErrorMessage)
+            })
+            .ToList();
+
+        var correlationId = context.HttpContext.TraceIdentifier;
+
+        logger.LogWarning("模型验证失败 Path={Path} CorrelationId={CorrelationId} Errors={Errors}",
+            context.HttpContext.Request.Path,
+            correlationId,
+            JsonSerializer.Serialize(errors));
+
+        return new BadRequestObjectResult(new
+        {
+            message = "请求数据验证失败",
+            correlationId,
+            errors
+        });
+    };
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -164,6 +205,9 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new PhysicalFileProvider(uploadRoot),
     RequestPath = "/uploads"
 });
+
+// 请求/响应日志（含 4xx/5xx 与异常）
+app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 
 app.UseAuthentication();

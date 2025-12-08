@@ -56,12 +56,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
-    path: '/admin/import/:queueId',
-    name: 'ImageImport',
-    component: () => import('../views/admin/ImageImport.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true },
-  },
-  {
     path: '/admin/export',
     name: 'DataExport',
     component: () => import('../views/admin/DataExport.vue'),

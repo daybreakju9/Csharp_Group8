@@ -209,62 +209,86 @@ namespace ImageAnnotationApp.Services
         }
 
         /// <summary>
-        /// 并行上传多个图片
+        /// 批量上传多个图片（后端一次处理，支持跳过已存在），采用文件流避免占用大内存
         /// </summary>
         public async Task<UploadResult> UploadImagesParallelAsync(
             int queueId,
-            Dictionary<string, List<(string fileName, byte[] data)>> folderFiles,
+            Dictionary<string, List<string>> folderFiles,
             int maxConcurrency = 5,
             IProgress<ParallelUploadProgress>? progress = null)
         {
             var result = new UploadResult();
             var totalFiles = folderFiles.Sum(f => f.Value.Count);
-            var completedFiles = 0;
-            int successCount = 0;
-            int failureCount = 0;
-            var errors = new List<string>();
-            var semaphore = new SemaphoreSlim(maxConcurrency);
+            long currentBytes = 0;
 
-            var tasks = folderFiles.SelectMany(folder =>
-                folder.Value.Select(async file =>
+            var flat = folderFiles
+                .SelectMany(f => f.Value.Select(path => new { folder = f.Key, path, size = new FileInfo(path).Length }))
+                .ToList();
+
+            var batches = new List<List<(string folder, string path, long size)>>();
+            var batch = new List<(string folder, string path, long size)>();
+            const int maxFilesPerBatch = 400;
+            const long maxBytesPerBatch = 400L * 1024 * 1024; // 400 MB
+
+            foreach (var item in flat)
+            {
+                if (batch.Count >= maxFilesPerBatch || currentBytes + item.size > maxBytesPerBatch)
                 {
-                    await semaphore.WaitAsync();
-                    try
+                    if (batch.Count > 0)
                     {
-                        await UploadImageAsync(queueId, folder.Key, file.fileName, file.data);
-                        Interlocked.Increment(ref successCount);
+                        batches.Add(batch);
+                        batch = new List<(string folder, string path, long size)>();
+                        currentBytes = 0;
                     }
-                    catch (Exception ex)
+                }
+                batch.Add((item.folder, item.path, item.size));
+                currentBytes += item.size;
+            }
+            if (batch.Count > 0) batches.Add(batch);
+
+            int completedFiles = 0;
+
+            foreach (var b in batches)
+            {
+                var content = new MultipartFormDataContent();
+                content.Add(new StringContent(queueId.ToString()), "queueId");
+                foreach (var (folder, path, _) in b)
+                {
+                    var fileName = Path.GetFileName(path);
+                    var stream = File.OpenRead(path);
+                    var fileContent = new StreamContent(stream);
+                    content.Add(fileContent, "files", fileName);
+                    content.Add(new StringContent(folder), "folderNames");
+                }
+
+                try
+                {
+                    var response = await _httpClient.PostMultipartAsync<BatchUploadResponse>("images/upload-batch", content);
+
+                    completedFiles += b.Count;
+                    progress?.Report(new ParallelUploadProgress
                     {
-                        Interlocked.Increment(ref failureCount);
-                        lock (errors)
-                        {
-                            errors.Add($"{folder.Key}/{file.fileName}: {ex.Message}");
-                        }
-                    }
-                    finally
-                    {
-                        semaphore.Release();
-                        Interlocked.Increment(ref completedFiles);
+                        TotalFiles = totalFiles,
+                        CompletedFiles = completedFiles,
+                        SuccessCount = (response?.SuccessCount ?? 0) + result.SuccessCount,
+                        FailureCount = (response?.FailureCount ?? 0) + result.FailureCount,
+                        CurrentFile = "",
+                        Percentage = (double)completedFiles / totalFiles * 100
+                    });
 
-                        progress?.Report(new ParallelUploadProgress
-                        {
-                            TotalFiles = totalFiles,
-                            CompletedFiles = completedFiles,
-                            SuccessCount = successCount,
-                            FailureCount = failureCount,
-                            CurrentFile = $"{folder.Key}/{file.fileName}",
-                            Percentage = (double)completedFiles / totalFiles * 100
-                        });
-                    }
-                })
-            );
+                    result.SuccessCount += response?.SuccessCount ?? 0;
+                    result.FailureCount += response?.FailureCount ?? 0;
+                    result.SkippedCount += response?.SkippedCount ?? 0;
+                    result.Errors.AddRange(response?.Errors ?? new List<string>());
+                    result.SkippedFiles.AddRange(response?.SkippedFiles ?? new List<string>());
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add($"批量上传失败: {ex.Message}");
+                    result.FailureCount += b.Count;
+                }
+            }
 
-            await Task.WhenAll(tasks);
-
-            result.SuccessCount = successCount;
-            result.FailureCount = failureCount;
-            result.Errors = errors;
             return result;
         }
     }
@@ -274,6 +298,19 @@ namespace ImageAnnotationApp.Services
         public int SuccessCount { get; set; }
         public int FailureCount { get; set; }
         public List<string> Errors { get; set; } = new();
+        public int SkippedCount { get; set; }
+        public List<string> SkippedFiles { get; set; } = new();
+    }
+
+    public class BatchUploadResponse
+    {
+        public string? Message { get; set; }
+        public int SuccessCount { get; set; }
+        public int SkippedCount { get; set; }
+        public int FailureCount { get; set; }
+        public int TotalGroups { get; set; }
+        public List<string> Errors { get; set; } = new();
+        public List<string> SkippedFiles { get; set; } = new();
     }
 
     public class ParallelUploadProgress

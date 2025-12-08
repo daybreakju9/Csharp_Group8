@@ -13,8 +13,8 @@
         <el-card v-loading="loading">
           <el-table :data="queuesStore.queues" style="width: 100%">
             <el-table-column prop="name" label="队列名称" />
-            <el-table-column prop="imageCount" label="对比图片数" width="120" />
-            <el-table-column prop="totalImages" label="总图片组" width="120" />
+            <el-table-column prop="comparisonCount" label="对比图片数" width="120" />
+            <el-table-column prop="totalImageCount" label="总图片组" width="120" />
             <el-table-column label="操作" width="150">
               <template #default="scope">
                 <el-button type="primary" size="small" @click="startSelection(scope.row.id)">

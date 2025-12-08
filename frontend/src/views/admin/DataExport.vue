@@ -142,7 +142,7 @@
             <el-table :data="queuesStore.queues" v-loading="loading">
               <el-table-column prop="projectName" label="所属项目" width="150" />
               <el-table-column prop="name" label="队列名称" width="180" />
-              <el-table-column prop="totalImages" label="总图片数" width="120" />
+              <el-table-column prop="totalImageCount" label="总图片数" width="120" />
               <el-table-column label="图片组数" width="120">
                 <template #default="scope">
                   {{ calculateGroups(scope.row) }}
@@ -306,8 +306,8 @@ const downloadBlob = (blob: Blob, filename: string, mimeType: string) => {
 }
 
 const calculateGroups = (queue: any) => {
-  if (!queue.imageCount || queue.imageCount === 0) return 0
-  return Math.floor(queue.totalImages / queue.imageCount)
+  if (!queue.comparisonCount || queue.comparisonCount === 0) return 0
+  return Math.floor(queue.totalImageCount / queue.comparisonCount)
 }
 
 const goToUserView = () => {

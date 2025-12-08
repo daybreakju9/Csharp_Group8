@@ -55,15 +55,15 @@ export interface Queue {
   projectId: number
   projectName: string
   name: string
-  imageCount: number
-  totalImages: number
+  comparisonCount: number
+  totalImageCount: number
   createdAt: string
 }
 
 export interface CreateQueueDto {
   projectId: number
   name: string
-  imageCount: number
+  comparisonCount: number
 }
 
 // 图片相关类型

@@ -113,6 +113,57 @@ public class ImageRepository : Repository<Image>, IImageRepository
             .FirstOrDefaultAsync(i => i.FileHash == fileHash);
     }
 
+    public async Task<Image?> GetByQueueAndHashAsync(int queueId, string fileHash)
+    {
+        return await _context.Images
+            .FirstOrDefaultAsync(i => i.QueueId == queueId && i.FileHash == fileHash);
+    }
+
+    public async Task<HashSet<string>> GetHashesByQueueAsync(int queueId, IEnumerable<string> hashes)
+    {
+        var hashList = hashes.Distinct().ToList();
+        var existing = await _context.Images
+            .Where(i => i.QueueId == queueId && hashList.Contains(i.FileHash!))
+            .Select(i => i.FileHash!)
+            .ToListAsync();
+
+        return existing.ToHashSet();
+    }
+
+    public async Task<Image?> GetByQueueAndFileNameAsync(int queueId, string fileName)
+    {
+        return await _context.Images
+            .FirstOrDefaultAsync(i => i.QueueId == queueId && i.FileName == fileName);
+    }
+
+    public async Task<HashSet<string>> GetFileNamesByQueueAsync(int queueId, IEnumerable<string> fileNames)
+    {
+        var nameList = fileNames.Distinct().ToList();
+        var existing = await _context.Images
+            .Where(i => i.QueueId == queueId && nameList.Contains(i.FileName))
+            .Select(i => i.FileName)
+            .ToListAsync();
+
+        return existing.ToHashSet();
+    }
+
+    public async Task<Image?> GetByQueueFolderAndFileNameAsync(int queueId, string folderName, string fileName)
+    {
+        return await _context.Images
+            .FirstOrDefaultAsync(i => i.QueueId == queueId && i.FolderName == folderName && i.FileName == fileName);
+    }
+
+    public async Task<HashSet<string>> GetFolderFileKeysByQueueAsync(int queueId, IEnumerable<string> folderFileKeys)
+    {
+        var keyList = folderFileKeys.Distinct().ToList();
+        var existing = await _context.Images
+            .Where(i => i.QueueId == queueId && keyList.Contains(i.FolderName + "|" + i.FileName))
+            .Select(i => i.FolderName + "|" + i.FileName)
+            .ToListAsync();
+
+        return existing.ToHashSet();
+    }
+
     public async Task<int> GetTotalSizeByQueueIdAsync(int queueId)
     {
         return await _context.Images
