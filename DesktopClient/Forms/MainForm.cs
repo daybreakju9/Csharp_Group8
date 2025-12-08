@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -12,22 +14,41 @@ namespace ImageAnnotationApp.Forms
         private readonly ContextMenuStrip _adminShortcutMenu;
         private NavigationManager _navigationManager = null!;
 
+        // 新增：表示当前左侧导航处于管理员视图（true）或用户视图（false）
+        private bool _isAdminView = false;
+
         public NavigationManager Navigation => _navigationManager;
 
         public MainForm()
         {
             InitializeComponent();
+
             _authService = AuthService.Instance;
             _adminShortcutMenu = BuildAdminShortcutMenu();
-            btnAdminEntry.ContextMenuStrip = _adminShortcutMenu;
+            // Designer 中存在 btnAdminEntry，绑定上下文菜单
+            if (btnAdminEntry != null)
+                btnAdminEntry.ContextMenuStrip = _adminShortcutMenu;
 
-            // 初始不显示侧边导航（符合需求2）
+            // 绑定左侧账户按钮行为（替代顶部账户）
+            if (navBtnAccount != null)
+            {
+                navBtnAccount.Click += NavBtnAccount_Click;
+            }
+
+            // 绑定切换按钮（Designer 中新增 navBtnSwitchView）
+            if (navBtnSwitchView != null)
+            {
+                navBtnSwitchView.Click += NavBtnSwitchView_Click;
+            }
+
+            // 初始不显示侧边导航（符合需求）
             if (panelNav != null)
                 panelNav.Visible = false;
 
             // 响应尺寸变化以便居中欢迎页按钮和调整侧栏按钮宽度
             this.Resize += MainForm_Resize;
-            panelMain.SizeChanged += (s, e) => CenterWelcomeButtons();
+            if (panelMain != null)
+                panelMain.SizeChanged += (s, e) => CenterWelcomeButtons();
         }
 
         private void MainForm_Load(object sender, EventArgs e)
@@ -47,42 +68,52 @@ namespace ImageAnnotationApp.Forms
             {
                 lblUser.Text = $"当前用户: {_authService.CurrentUser.Username} ({GetRoleDisplayName(_authService.CurrentUser.Role)})";
 
-                // 游客可以进入项目，但不能执行管理/新建操作（需求1）
-                btnUserEntry.Enabled = true;
+                // 游客可以进入项目，但不能执行管理/新建操作（仍在各页面里限制）
+                if (btnUserEntry != null) btnUserEntry.Enabled = true;
 
-                // 管理员专属入口可见性
-                btnAdminEntry.Visible = _authService.IsAdmin;
-                menuAdmin.Visible = _authService.IsAdmin;
+                // 管理员专属入口可见性（由侧栏按钮控制）
+                if (btnAdminEntry != null) btnAdminEntry.Visible = _authService.IsAdmin;
 
-                // 如果是管理员，不显示“用户功能”的“项目列表”在侧栏（需求1）
-                if (_authService.IsAdmin)
+                // 默认视图：普通用户视图（即使是管理员也先不切换到 admin view）
+                _isAdminView = false;
+
+                // 控制左侧切换按钮，仅管理员可见
+                if (navBtnSwitchView != null)
                 {
-                    if (navBtnProjects != null) navBtnProjects.Visible = false;
+                    navBtnSwitchView.Visible = _authService.IsAdmin;
+                    UpdateSwitchButtonText();
+                }
 
-                    // 管理员时显示侧边管理按钮（当侧栏显示时）
-                    if (navBtnAdminProjects != null) navBtnAdminProjects.Visible = true;
-                    if (navBtnAdminQueues != null) navBtnAdminQueues.Visible = true;
-                    if (navBtnAdminUsers != null) navBtnAdminUsers.Visible = true;
-                    if (navBtnAdminExport != null) navBtnAdminExport.Visible = true;
-                }
-                else
-                {
-                    // 非管理员确保项目按钮可见
-                    if (navBtnProjects != null) navBtnProjects.Visible = true;
-                }
+                // 根据是否为管理员，设置初始侧栏项可见性（管理员初始以用户视图展示）
+                UpdateNavForAdminView(_isAdminView);
             }
 
             // 初次布局：居中欢迎页按钮
             CenterWelcomeButtons();
+
+            System.Diagnostics.Debug.WriteLine($"DEBUG: _authService.IsAdmin = {_authService?.IsAdmin}");
+            if (navBtnSwitchView == null)
+            {
+                System.Diagnostics.Debug.WriteLine("DEBUG: navBtnSwitchView == null (Designer 未初始化此控件)");
+            }
+            else
+            {
+                // 强制设置停靠以防被覆盖/位置不当，并确保显示性同步
+                navBtnSwitchView.Dock = DockStyle.Top;
+                navBtnAccount.Dock = DockStyle.Bottom;
+                navBtnSwitchView.Visible = _authService.IsAdmin;
+                navBtnSwitchView.BringToFront();
+                System.Diagnostics.Debug.WriteLine($"DEBUG: navBtnSwitchView.Visible = {navBtnSwitchView.Visible}, Location={navBtnSwitchView.Location}, Size={navBtnSwitchView.Size}");
+            }
         }
 
-        // ========== 导航控制（当用户点击进入功能时显示侧栏） ==========
+        // ========== Navigation show/hide + handlers ==========
+
         private void ShowNav()
         {
             if (panelNav != null && !panelNav.Visible)
             {
                 panelNav.Visible = true;
-                // 调整按钮宽度以匹配侧栏
                 UpdateNavButtonWidths();
 
                 // 自动设定当前激活项（如果没有）为第一个可见按钮
@@ -90,6 +121,9 @@ namespace ImageAnnotationApp.Forms
                 if (first != null)
                     SetActiveNav(first);
             }
+
+            // 每次显示侧边导航时根据当前模式刷新按钮可见性
+            UpdateNavForAdminView(_isAdminView);
         }
 
         private void HideNav()
@@ -97,54 +131,100 @@ namespace ImageAnnotationApp.Forms
             if (panelNav != null && panelNav.Visible)
             {
                 panelNav.Visible = false;
-                // 居中欢迎区按钮
                 CenterWelcomeButtons();
             }
         }
 
-        // 当用户点击“进入用户功能”时，显示导航并导航到项目列表
         private void btnUserEntry_Click(object sender, EventArgs e)
         {
             // 游客也允许进入项目（需求1）
+            // 进入用户功能时切换为用户视图（便于管理员调试）
+            _isAdminView = false;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
             ShowNav();
-            // 等待一次布局调整，然后导航
             Application.DoEvents();
-            // 设置激活状态
+
             if (navBtnProjects != null && navBtnProjects.Visible)
                 SetActiveNav(navBtnProjects);
 
             menuProjects_Click(sender, e);
         }
 
-        // 管理入口：显示侧栏并展示管理员快捷菜单（或直接导航）
         private void btnAdminEntry_Click(object sender, EventArgs e)
         {
-            if (!_authService.IsAdmin)
-            {
-                // 非管理员不显示管理入口（防御性检查）
-                return;
-            }
+            if (!_authService.IsAdmin) return;
 
+            // 进入管理员功能时切换为管理员视图
+            _isAdminView = true;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
+            // Show left navigation and mark admin "Project Management" as active,
+            // then navigate directly to the ProjectManagementForm.
             ShowNav();
-
-            // 优先将第一个管理员按钮设为激活（视觉反馈）
             if (navBtnAdminProjects != null && navBtnAdminProjects.Visible)
                 SetActiveNav(navBtnAdminProjects);
 
-            // 如果有快捷菜单项则显示菜单，否则直接打开管理页
-            if (_adminShortcutMenu.Items.Count == 0)
+            menuAdminProjects_Click(sender, e);
+        }
+
+        // 新增：左侧切换按钮事件（管理员可见）
+        private void NavBtnSwitchView_Click(object? sender, EventArgs e)
+        {
+            if (!_authService.IsAdmin) return;
+
+            // 切换模式
+            _isAdminView = !_isAdminView;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
+            // 确保侧栏显示并更新激活项
+            ShowNav();
+            Application.DoEvents();
+
+            // 确保 NavigationManager 已初始化
+            if (_navigationManager == null)
             {
-                menuAdminProjects_Click(sender, e);
+                System.Diagnostics.Debug.WriteLine("DEBUG: NavigationManager is null when switching views");
                 return;
             }
 
-            var location = new Point(0, btnAdminEntry.Height);
-            _adminShortcutMenu.Show(btnAdminEntry, location);
+            // 在 UI 线程执行导航，避免跨线程问题
+            void DoNavigate()
+            {
+                if (_isAdminView)
+                {
+                    if (navBtnAdminProjects != null && navBtnAdminProjects.Visible)
+                        SetActiveNav(navBtnAdminProjects);
+
+                    // 直接导航到管理员的默认页面
+                    _navigationManager.NavigateToRoot(new ProjectManagementForm());
+                }
+                else
+                {
+                    if (navBtnProjects != null && navBtnProjects.Visible)
+                        SetActiveNav(navBtnProjects);
+
+                    // 导航到用户默认页面（与游客/用户入口相同）
+                    _navigationManager.NavigateToRoot(new ProjectListForm());
+                }
+            }
+
+            if (this.InvokeRequired)
+                this.Invoke((Action)DoNavigate);
+            else
+                DoNavigate();
         }
 
-        // 菜单导航：点击项目菜单也应显示侧栏并设置激活项
         private void menuProjects_Click(object sender, EventArgs e)
         {
+            // 切换为用户视图（当管理员通过侧边点击用户项时也要切换）
+            _isAdminView = false;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
             ShowNav();
             if (navBtnProjects != null && navBtnProjects.Visible) SetActiveNav(navBtnProjects);
             _navigationManager.NavigateToRoot(new ProjectListForm());
@@ -152,6 +232,11 @@ namespace ImageAnnotationApp.Forms
 
         private void menuAdminProjects_Click(object sender, EventArgs e)
         {
+            // 切换为管理员视图
+            _isAdminView = true;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
             ShowNav();
             if (navBtnAdminProjects != null && navBtnAdminProjects.Visible) SetActiveNav(navBtnAdminProjects);
             _navigationManager.NavigateToRoot(new ProjectManagementForm());
@@ -159,6 +244,10 @@ namespace ImageAnnotationApp.Forms
 
         private void menuAdminQueues_Click(object sender, EventArgs e)
         {
+            _isAdminView = true;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
             ShowNav();
             if (navBtnAdminQueues != null && navBtnAdminQueues.Visible) SetActiveNav(navBtnAdminQueues);
             _navigationManager.NavigateToRoot(new QueueManagementForm());
@@ -166,6 +255,10 @@ namespace ImageAnnotationApp.Forms
 
         private void menuAdminUsers_Click(object sender, EventArgs e)
         {
+            _isAdminView = true;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
             ShowNav();
             if (navBtnAdminUsers != null && navBtnAdminUsers.Visible) SetActiveNav(navBtnAdminUsers);
             _navigationManager.NavigateToRoot(new UserManagementForm());
@@ -173,31 +266,28 @@ namespace ImageAnnotationApp.Forms
 
         private void menuAdminExport_Click(object sender, EventArgs e)
         {
+            _isAdminView = true;
+            UpdateNavForAdminView(_isAdminView);
+            UpdateSwitchButtonText();
+
             ShowNav();
             if (navBtnAdminExport != null && navBtnAdminExport.Visible) SetActiveNav(navBtnAdminExport);
             _navigationManager.NavigateToRoot(new DataExportForm());
         }
 
-        // ========== 布局与外观调整 ==========
+        // ========== Layout / Styling helpers ==========
+
         private void MainForm_Resize(object? sender, EventArgs e)
         {
-            // 当窗体变化时，调整侧栏按钮宽度与欢迎页按钮居中
             UpdateNavButtonWidths();
             CenterWelcomeButtons();
         }
 
         private void UpdateNavButtonsAppearance()
         {
-            // 统一字体：加粗并增大一、两个字号
             var navFont = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold);
-
-            // 非选中默认样式：白底黑字
             Color defaultBack = Color.White;
             Color defaultFore = Color.Black;
-
-            // 激活时样式（用 UIConstants 主色的稍淡颜色）
-            Color selectedBack = Color.FromArgb(64, 158, 255);
-            Color selectedFore = Color.White;
 
             if (navBtnProjects != null)
             {
@@ -221,7 +311,24 @@ namespace ImageAnnotationApp.Forms
                 }
             }
 
-            // 保证首次宽度正确
+            if (navBtnAccount != null)
+            {
+                navBtnAccount.Font = navFont;
+                navBtnAccount.TextAlign = ContentAlignment.MiddleCenter;
+                navBtnAccount.BackColor = defaultBack;
+                navBtnAccount.ForeColor = defaultFore;
+                navBtnAccount.FlatStyle = FlatStyle.Flat;
+            }
+
+            if (navBtnSwitchView != null)
+            {
+                navBtnSwitchView.Font = navFont;
+                navBtnSwitchView.TextAlign = ContentAlignment.MiddleCenter;
+                navBtnSwitchView.BackColor = defaultBack;
+                navBtnSwitchView.ForeColor = defaultFore;
+                navBtnSwitchView.FlatStyle = FlatStyle.Flat;
+            }
+
             UpdateNavButtonWidths();
         }
 
@@ -230,7 +337,6 @@ namespace ImageAnnotationApp.Forms
             if (panelNav == null || flowLayoutPanelNav == null) return;
 
             int innerWidth = panelNav.ClientSize.Width - panelNav.Padding.Left - panelNav.Padding.Right;
-            // flowLayoutPanelNav 里每个按钮宽度设为 innerWidth - margin
             foreach (Control c in flowLayoutPanelNav.Controls)
             {
                 if (c is Button btn)
@@ -238,9 +344,60 @@ namespace ImageAnnotationApp.Forms
                     btn.Width = Math.Max(80, innerWidth - btn.Margin.Left - btn.Margin.Right);
                 }
             }
+
+            if (navBtnAccount != null && panelAccount != null)
+            {
+                navBtnAccount.Width = panelAccount.ClientSize.Width - navBtnAccount.Margin.Left - navBtnAccount.Margin.Right;
+                navBtnSwitchView.Width = navBtnAccount.Width;
+            }
         }
 
-        // 设置侧栏激活按钮视觉状态（需求2）
+        // 新增：根据当前 _isAdminView 控制侧边栏显示的项（管理员可以在两种视图间切换）
+        private void UpdateNavForAdminView(bool isAdminView)
+        {
+            if (_authService == null) return;
+
+            // 只有管理员可以切换到管理员视图
+            if (!_authService.IsAdmin)
+            {
+                // 非管理员只显示用户项
+                if (navBtnProjects != null) navBtnProjects.Visible = true;
+                var adminButtons = new[] { navBtnAdminProjects, navBtnAdminQueues, navBtnAdminUsers, navBtnAdminExport };
+                foreach (var b in adminButtons) if (b != null) b.Visible = false;
+                if (navBtnSwitchView != null) navBtnSwitchView.Visible = false;
+                return;
+            }
+
+            // 管理员可见切换按钮
+            if (navBtnSwitchView != null) navBtnSwitchView.Visible = true;
+
+            if (isAdminView)
+            {
+                if (navBtnProjects != null) navBtnProjects.Visible = false;
+                if (navBtnAdminProjects != null) navBtnAdminProjects.Visible = true;
+                if (navBtnAdminQueues != null) navBtnAdminQueues.Visible = true;
+                if (navBtnAdminUsers != null) navBtnAdminUsers.Visible = true;
+                if (navBtnAdminExport != null) navBtnAdminExport.Visible = true;
+            }
+            else
+            {
+                if (navBtnProjects != null) navBtnProjects.Visible = true;
+                if (navBtnAdminProjects != null) navBtnAdminProjects.Visible = false;
+                if (navBtnAdminQueues != null) navBtnAdminQueues.Visible = false;
+                if (navBtnAdminUsers != null) navBtnAdminUsers.Visible = false;
+                if (navBtnAdminExport != null) navBtnAdminExport.Visible = false;
+            }
+
+            UpdateNavButtonWidths();
+        }
+
+        // 新增：更新切换按钮文本
+        private void UpdateSwitchButtonText()
+        {
+            if (navBtnSwitchView == null) return;
+            navBtnSwitchView.Text = _isAdminView ? "进入用户功能" : "进入管理员功能";
+        }
+
         private void SetActiveNav(Button active)
         {
             if (flowLayoutPanelNav == null) return;
@@ -254,30 +411,23 @@ namespace ImageAnnotationApp.Forms
             {
                 if (c is Button b)
                 {
-                    // 重置到默认状态
                     b.BackColor = defaultBack;
                     b.ForeColor = defaultFore;
                 }
             }
 
-            // 应用激活样式
             active.BackColor = selectedBack;
             active.ForeColor = selectedFore;
             active.Font = new Font(active.Font.FontFamily, active.Font.Size, FontStyle.Bold);
         }
 
-        // 居中欢迎页按钮（当侧栏隐藏时按钮应居中）
         private void CenterWelcomeButtons()
         {
             if (panelWelcome == null) return;
 
-            // 如果侧栏可见，则保留 Designer 布局（不做改变）
             if (panelNav != null && panelNav.Visible)
-            {
                 return;
-            }
 
-            // 侧栏隐藏：计算居中布局
             var visibleButtons = new List<Button>();
             if (btnUserEntry != null && btnUserEntry.Visible) visibleButtons.Add(btnUserEntry);
             if (btnAdminEntry != null && btnAdminEntry.Visible) visibleButtons.Add(btnAdminEntry);
@@ -294,6 +444,35 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
+        // ========== Account / Admin menu builders ==========
+
+        private ContextMenuStrip BuildAdminShortcutMenu()
+        {
+            var menu = new ContextMenuStrip();
+            menu.Items.Add("项目管理", null, (s, e) => menuAdminProjects_Click(s, e));
+            menu.Items.Add("队列管理", null, (s, e) => menuAdminQueues_Click(s, e));
+            menu.Items.Add("用户管理", null, (s, e) => menuAdminUsers_Click(s, e));
+            menu.Items.Add("数据导出", null, (s, e) => menuAdminExport_Click(s, e));
+            return menu;
+        }
+
+        private void NavBtnAccount_Click(object? sender, EventArgs e)
+        {
+            var result = MessageBox.Show(
+                "确定要退出登录并关闭程序吗？",
+                "确认",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                try { _authService.Logout(); } catch { }
+                Application.Exit();
+            }
+        }
+
+        // ========== Utilities ==========
+
         private string GetRoleDisplayName(string role)
         {
             return role switch
@@ -307,37 +486,12 @@ namespace ImageAnnotationApp.Forms
 
         private void menuLogout_Click(object sender, EventArgs e)
         {
-            var result = MessageBox.Show(
-                "确定要退出登录吗？",
-                "确认",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result == DialogResult.Yes)
-            {
-                _authService.Logout();
-
-                // 返回登录界面
-                var loginForm = new LoginForm();
-                loginForm.Show();
-                this.Close();
-            }
+            NavBtnAccount_Click(sender, e);
         }
 
         private void LoadForm(Form form)
         {
-            // 已废弃，请使用 NavigationManager.NavigateTo 或 NavigateToRoot
             _navigationManager?.NavigateTo(form, addToStack: false);
-        }
-
-        private ContextMenuStrip BuildAdminShortcutMenu()
-        {
-            var menu = new ContextMenuStrip();
-            menu.Items.Add("项目管理", null, (s, e) => menuAdminProjects_Click(s, e));
-            menu.Items.Add("队列管理", null, (s, e) => menuAdminQueues_Click(s, e));
-            menu.Items.Add("用户管理", null, (s, e) => menuAdminUsers_Click(s, e));
-            menu.Items.Add("数据导出", null, (s, e) => menuAdminExport_Click(s, e));
-            return menu;
         }
     }
 }

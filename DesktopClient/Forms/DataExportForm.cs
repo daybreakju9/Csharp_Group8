@@ -1,3 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
 using ImageAnnotationApp.Helpers;
@@ -22,13 +29,14 @@ namespace ImageAnnotationApp.Forms
             _exportService = new ExportService();
             _queueService = new QueueService();
             InitializeCustomComponents();
-            LoadQueuesAsync();
+            _ = LoadQueuesAsync();
         }
 
         private void InitializeCustomComponents()
         {
             this.Text = UIConstants.FormatWindowTitle("数据导出");
             this.Size = UIConstants.WindowSizes.Large;
+            this.StartPosition = FormStartPosition.CenterParent;
 
             // 导出选择记录面板
             var panelSelections = new Panel
@@ -82,7 +90,7 @@ namespace ImageAnnotationApp.Forms
                 Text = "导出选择记录",
                 Location = new Point(620, 35),
                 Size = new Size(150, 30),
-                BackColor = Color.FromArgb(0, 122, 204),
+                BackColor = UIConstants.Colors.PrimaryButton,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
             };
@@ -133,8 +141,6 @@ namespace ImageAnnotationApp.Forms
                 Size = new Size(300, 23),
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            cmbProgressQueue.Items.Add("所有队列");
-            cmbProgressQueue.SelectedIndex = 0;
 
             var lblProgressFormat = new Label
             {
@@ -157,7 +163,7 @@ namespace ImageAnnotationApp.Forms
                 Text = "导出进度数据",
                 Location = new Point(620, 35),
                 Size = new Size(150, 30),
-                BackColor = Color.FromArgb(40, 167, 69),
+                BackColor = UIConstants.Colors.SuccessButton,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
             };
@@ -179,7 +185,6 @@ namespace ImageAnnotationApp.Forms
                 ForeColor = Color.Gray,
                 Font = new Font("Microsoft YaHei", 9F)
             };
-
 
             panelProgress.Controls.AddRange(new Control[]
             {
@@ -218,7 +223,6 @@ namespace ImageAnnotationApp.Forms
             listViewQueues.Columns.Add("队列名称", 200);
             listViewQueues.Columns.Add("总图片数", 100);
             listViewQueues.Columns.Add("图片组数", 100);
-            listViewQueues.Columns.Add("操作", 300);
 
             panelStats.Controls.Add(listViewQueues);
             panelStats.Controls.Add(toolStrip);
@@ -261,86 +265,43 @@ namespace ImageAnnotationApp.Forms
                     item.SubItems.Add(queue.Name);
                     item.SubItems.Add(queue.TotalImageCount.ToString());
                     item.SubItems.Add(queue.GroupCount.ToString());
-                    
-                    // 操作列
-                    var btnExportSel = new Button
-                    {
-                        Text = "导出选择",
-                        Size = new Size(80, 25),
-                        Tag = queue.Id,
-                        BackColor = Color.FromArgb(0, 122, 204),
-                        ForeColor = Color.White,
-                        FlatStyle = FlatStyle.Flat
-                    };
-                    btnExportSel.Click += async (s, e) =>
-                    {
-                        if (s is Button btn && btn.Tag is int qId)
-                        {
-                            await QuickExportSelectionsAsync(qId);
-                        }
-                    };
-
-                    var btnExportProg = new Button
-                    {
-                        Text = "导出进度",
-                        Size = new Size(80, 25),
-                        Tag = queue.Id,
-                        BackColor = Color.FromArgb(40, 167, 69),
-                        ForeColor = Color.White,
-                        FlatStyle = FlatStyle.Flat,
-                        Location = new Point(90, 0)
-                    };
-                    btnExportProg.Click += async (s, e) =>
-                    {
-                        if (s is Button btn && btn.Tag is int qId)
-                        {
-                            await QuickExportProgressAsync(qId);
-                        }
-                    };
-
-                    var panel = new Panel
-                    {
-                        Size = new Size(180, 30),
-                        Padding = new Padding(5, 2, 5, 2)
-                    };
-                    panel.Controls.Add(btnExportSel);
-                    panel.Controls.Add(btnExportProg);
-
                     item.Tag = queue;
                     listViewQueues.Items.Add(item);
                 }
 
-                // 为操作列添加按钮（需要自定义绘制或使用其他方式）
-                // 这里简化处理，使用双击事件
-                listViewQueues.DoubleClick += async (s, e) =>
-                {
-                    if (listViewQueues.SelectedItems.Count > 0)
-                    {
-                        var queue = listViewQueues.SelectedItems[0].Tag as Models.Queue;
-                        if (queue != null)
-                        {
-                            var result = MessageBox.Show(
-                                $"选择操作:\n\n点击'是'导出选择记录\n点击'否'导出进度数据",
-                                "快速导出",
-                                MessageBoxButtons.YesNoCancel,
-                                MessageBoxIcon.Question);
-                            
-                            if (result == DialogResult.Yes)
-                            {
-                                await QuickExportSelectionsAsync(queue.Id);
-                            }
-                            else if (result == DialogResult.No)
-                            {
-                                await QuickExportProgressAsync(queue.Id);
-                            }
-                        }
-                    }
-                };
+                // 绑定/替换双击处理器
+                listViewQueues.DoubleClick -= ListViewQueues_DoubleClickHandler;
+                listViewQueues.DoubleClick += ListViewQueues_DoubleClickHandler;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"加载队列列表失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async void ListViewQueues_DoubleClickHandler(object? s, EventArgs e)
+        {
+            if (listViewQueues.SelectedItems.Count > 0)
+            {
+                var queue = listViewQueues.SelectedItems[0].Tag as Models.Queue;
+                if (queue != null)
+                {
+                    var result = MessageBox.Show(
+                        $"选择操作:\n\n点击'是'导出选择记录\n点击'否'导出进度数据",
+                        "快速导出",
+                        MessageBoxButtons.YesNoCancel,
+                        MessageBoxIcon.Question);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        await QuickExportSelectionsAsync(queue.Id);
+                    }
+                    else if (result == DialogResult.No)
+                    {
+                        await QuickExportProgressAsync(queue.Id);
+                    }
+                }
             }
         }
 
@@ -432,7 +393,7 @@ namespace ImageAnnotationApp.Forms
             try
             {
                 var data = await _exportService.ExportProgressAsync(queueId, "csv");
-                var fileName = $"progress_{queueId}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                var fileName = $"progress_{queueId}_{DateTime.Now:yyyyMMdd_HHmms}.csv";
                 _exportService.SaveToFile(data, fileName);
             }
             catch (Exception ex)

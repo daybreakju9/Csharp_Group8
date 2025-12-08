@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Drawing;
+using System.Linq;
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
 using ImageAnnotationApp.Helpers;
@@ -25,51 +27,131 @@ namespace ImageAnnotationApp.Forms
         {
             this.Text = UIConstants.FormatWindowTitle("用户管理");
             this.Size = UIConstants.WindowSizes.Large;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.Font = UIConstants.Fonts.Normal;
+            this.BackColor = UIConstants.Colors.Background;
 
             tabControl = new TabControl { Dock = DockStyle.Fill };
 
             // 待审核游客标签页
             var tabGuests = new TabPage("待审核游客");
             listViewGuests = CreateListView();
-            var toolStripGuests = new ToolStrip();
-            var btnApprove = new ToolStripButton("批准");
-            var btnReject = new ToolStripButton("拒绝");
-            var btnRefreshGuests = new ToolStripButton("刷新");
 
+            var topPanelGuests = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = UIConstants.ButtonSizes.Medium.Height + UIConstants.Spacing.Large * 2,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = this.BackColor
+            };
+            var flowGuests = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                AutoScroll = false,
+                BackColor = this.BackColor
+            };
+
+            var btnApprove = new Button
+            {
+                Text = "批准",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
             btnApprove.Click += async (s, e) => await ApproveUserAsync();
+
+            var btnReject = new Button
+            {
+                Text = "拒绝",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
             btnReject.Click += async (s, e) => await RejectUserAsync();
+
+            var btnRefreshGuests = new Button
+            {
+                Text = "刷新",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
             btnRefreshGuests.Click += async (s, e) => await LoadGuestUsersAsync();
 
-            toolStripGuests.Items.Add(btnApprove);
-            toolStripGuests.Items.Add(btnReject);
-            toolStripGuests.Items.Add(new ToolStripSeparator());
-            toolStripGuests.Items.Add(btnRefreshGuests);
+            ApplyGhostButtonStyle(btnApprove);
+            ApplyGhostButtonStyle(btnReject);
+            ApplyGhostButtonStyle(btnRefreshGuests);
+
+            flowGuests.Controls.Add(btnApprove);
+            flowGuests.Controls.Add(btnReject);
+            flowGuests.Controls.Add(btnRefreshGuests);
+            topPanelGuests.Controls.Add(flowGuests);
 
             tabGuests.Controls.Add(listViewGuests);
-            tabGuests.Controls.Add(toolStripGuests);
-            toolStripGuests.Dock = DockStyle.Top;
+            tabGuests.Controls.Add(topPanelGuests);
 
             // 所有用户标签页
             var tabAllUsers = new TabPage("所有用户");
             listViewAllUsers = CreateListView();
-            var toolStripAll = new ToolStrip();
-            var btnChangeRole = new ToolStripButton("修改权限");
-            var btnDeleteUser = new ToolStripButton("删除用户");
-            var btnRefreshAll = new ToolStripButton("刷新");
-            
+
+            var topPanelAll = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = UIConstants.ButtonSizes.Medium.Height + UIConstants.Spacing.Large * 2,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = this.BackColor
+            };
+            var flowAll = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                AutoScroll = false,
+                BackColor = this.BackColor
+            };
+
+            var btnChangeRole = new Button
+            {
+                Text = "修改权限",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
             btnChangeRole.Click += async (s, e) => await ChangeUserRoleAsync();
+
+            var btnDeleteUser = new Button
+            {
+                Text = "删除用户",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
             btnDeleteUser.Click += async (s, e) => await DeleteUserFromAllAsync();
+
+            var btnRefreshAll = new Button
+            {
+                Text = "刷新",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
             btnRefreshAll.Click += async (s, e) => await LoadAllUsersAsync();
-            
-            toolStripAll.Items.Add(btnChangeRole);
-            toolStripAll.Items.Add(new ToolStripSeparator());
-            toolStripAll.Items.Add(btnDeleteUser);
-            toolStripAll.Items.Add(new ToolStripSeparator());
-            toolStripAll.Items.Add(btnRefreshAll);
+
+            ApplyGhostButtonStyle(btnChangeRole);
+            ApplyGhostButtonStyle(btnDeleteUser);
+            ApplyGhostButtonStyle(btnRefreshAll);
+
+            flowAll.Controls.Add(btnChangeRole);
+            flowAll.Controls.Add(btnDeleteUser);
+            flowAll.Controls.Add(btnRefreshAll);
+            topPanelAll.Controls.Add(flowAll);
 
             tabAllUsers.Controls.Add(listViewAllUsers);
-            tabAllUsers.Controls.Add(toolStripAll);
-            toolStripAll.Dock = DockStyle.Top;
+            tabAllUsers.Controls.Add(topPanelAll);
 
             tabControl.TabPages.Add(tabGuests);
             tabControl.TabPages.Add(tabAllUsers);
@@ -84,13 +166,36 @@ namespace ImageAnnotationApp.Forms
                 Dock = DockStyle.Fill,
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true
+                GridLines = true,
+                Font = UIConstants.Fonts.Normal
             };
             listView.Columns.Add("ID", 50);
             listView.Columns.Add("用户名", 200);
             listView.Columns.Add("角色", 150);
             listView.Columns.Add("注册时间", 200);
             return listView;
+        }
+
+        // 幽灵按钮样式：默认与背景一致、显示细边框，悬停/按下时变为天蓝色
+        private void ApplyGhostButtonStyle(Button btn, Color? hoverColor = null)
+        {
+            if (btn == null) return;
+
+            var normalColor = UIConstants.Colors.Background;
+            var hover = hoverColor ?? Color.FromArgb(64, 158, 255);
+
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.LightGray;
+            btn.BackColor = normalColor;
+            btn.ForeColor = UIConstants.Colors.TextPrimary;
+            btn.Cursor = Cursors.Hand;
+
+            btn.FlatAppearance.MouseDownBackColor = hover;
+            btn.FlatAppearance.MouseOverBackColor = hover;
+
+            btn.MouseEnter += (s, e) => btn.BackColor = hover;
+            btn.MouseLeave += (s, e) => btn.BackColor = normalColor;
         }
 
         private async Task LoadUsersAsync()

@@ -1,6 +1,8 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
 using ImageAnnotationApp.Helpers;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace ImageAnnotationApp.Forms
 {
@@ -18,8 +20,12 @@ namespace ImageAnnotationApp.Forms
 
         private void InitializeCustomComponents()
         {
+            // 使窗口风格与其它页面一致（中等大小）
             this.Text = UIConstants.FormatWindowTitle("项目管理");
-            this.Size = UIConstants.WindowSizes.Large;
+            this.Size = UIConstants.WindowSizes.Medium;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.Font = UIConstants.Fonts.Normal;
+            this.BackColor = UIConstants.Colors.Background;
 
             // ListView
             listView = new ListView
@@ -27,7 +33,8 @@ namespace ImageAnnotationApp.Forms
                 Dock = DockStyle.Fill,
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true
+                GridLines = true,
+                Font = UIConstants.Fonts.Normal
             };
             listView.Columns.Add("ID", 50);
             listView.Columns.Add("项目名称", 200);
@@ -36,27 +43,94 @@ namespace ImageAnnotationApp.Forms
             listView.Columns.Add("创建者", 120);
             listView.Columns.Add("创建时间", 150);
 
-            // 工具栏
-            var toolStrip = new ToolStrip();
-            var btnAdd = new ToolStripButton("新建项目");
-            var btnEdit = new ToolStripButton("编辑");
-            var btnDelete = new ToolStripButton("删除");
-            var btnRefresh = new ToolStripButton("刷新");
+            // 顶部工具栏：使用 Panel + FlowLayoutPanel 替代 ToolStrip，以便统一按钮大小/样式
+            var topPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = UIConstants.ButtonSizes.Medium.Height + UIConstants.Spacing.Large * 2,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = this.BackColor
+            };
 
+            var flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                AutoScroll = false,
+                BackColor = this.BackColor
+            };
+
+            // 按钮：使用统一的 UIConstants 样式（但默认背景改为与窗体背景一致，悬停变蓝）
+            var btnAdd = UIConstants.CreatePrimaryButton("新建项目", null);
+            btnAdd.Size = UIConstants.ButtonSizes.Medium;
+            btnAdd.Font = UIConstants.Fonts.Normal;
+            btnAdd.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
             btnAdd.Click += BtnAdd_Click;
+
+            var btnEdit = UIConstants.CreateButton("编辑", UIConstants.ButtonSizes.Medium, UIConstants.Colors.PrimaryButton, null);
+            btnEdit.Font = UIConstants.Fonts.Normal;
+            btnEdit.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
             btnEdit.Click += BtnEdit_Click;
+
+            var btnDelete = UIConstants.CreateDangerButton("删除", null);
+            btnDelete.Size = UIConstants.ButtonSizes.Medium;
+            btnDelete.Font = UIConstants.Fonts.Normal;
+            btnDelete.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
             btnDelete.Click += async (s, e) => await BtnDelete_ClickAsync();
+
+            var btnRefresh = UIConstants.CreateButton("刷新", UIConstants.ButtonSizes.Medium, UIConstants.Colors.PrimaryButton, null);
+            btnRefresh.Font = UIConstants.Fonts.Normal;
+            btnRefresh.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
             btnRefresh.Click += async (s, e) => await LoadProjectsAsync();
 
-            toolStrip.Items.Add(btnAdd);
-            toolStrip.Items.Add(btnEdit);
-            toolStrip.Items.Add(btnDelete);
-            toolStrip.Items.Add(new ToolStripSeparator());
-            toolStrip.Items.Add(btnRefresh);
+            // 应用幽灵样式（默认与背景同色、有边框、悬停变天蓝色）
+            ApplyGhostButtonStyle(btnAdd);
+            ApplyGhostButtonStyle(btnEdit);
+            ApplyGhostButtonStyle(btnDelete);
+            ApplyGhostButtonStyle(btnRefresh);
 
+            // 将按钮加入流式面板
+            flow.Controls.Add(btnAdd);
+            flow.Controls.Add(btnEdit);
+            flow.Controls.Add(btnDelete);
+            flow.Controls.Add(btnRefresh);
+
+            topPanel.Controls.Add(flow);
+
+            // 添加控件到窗体（注意顺序：先添加填充的 listView，再添加顶部面板）
             this.Controls.Add(listView);
-            this.Controls.Add(toolStrip);
-            toolStrip.Dock = DockStyle.Top;
+            this.Controls.Add(topPanel);
+        }
+
+        // 把“幽灵”按钮样式封装，hoverColor 可自定义（默认使用之前的天蓝色）
+        private void ApplyGhostButtonStyle(Button btn, Color? hoverColor = null)
+        {
+            if (btn == null) return;
+
+            var normalColor = UIConstants.Colors.Background; // 与窗体背景相同
+            var hover = hoverColor ?? Color.FromArgb(64, 158, 255); // 之前使用的天蓝色
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.LightGray;
+            btn.BackColor = normalColor;
+            btn.ForeColor = UIConstants.Colors.TextPrimary;
+            btn.Cursor = Cursors.Hand;
+
+            // 保证按钮在高对比主题下也有边框显示
+            btn.FlatAppearance.MouseDownBackColor = hover;
+            btn.FlatAppearance.MouseOverBackColor = hover;
+
+            // 兼容运行时（部分情况下 ToolStrip/FlowLayout 可能覆盖颜色），再附加事件确保效果
+            btn.MouseEnter += (s, e) =>
+            {
+                btn.BackColor = hover;
+            };
+            btn.MouseLeave += (s, e) =>
+            {
+                btn.BackColor = normalColor;
+            };
         }
 
         private async Task LoadProjectsAsync()
@@ -98,15 +172,25 @@ namespace ImageAnnotationApp.Forms
             try
             {
                 UpdateStatus(UIConstants.StatusMessages.Saving);
-                await _projectService.CreateAsync(new CreateProjectDto
+
+                var created = await _projectService.CreateAsync(new CreateProjectDto
                 {
                     Name = name,
                     Description = description
                 });
 
-                MessageBox.Show(UIConstants.Messages.CreateSuccess, UIConstants.MessageTitles.Success,
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                await LoadProjectsAsync();
+                if (created != null)
+                {
+                    MessageBox.Show(UIConstants.Messages.CreateSuccess, UIConstants.MessageTitles.Success,
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    await LoadProjectsAsync();
+                }
+                else
+                {
+                    MessageBox.Show(UIConstants.Messages.CreateFailed, UIConstants.MessageTitles.Error,
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    UpdateStatus(UIConstants.Messages.CreateFailed);
+                }
             }
             catch (Exception ex)
             {
@@ -136,15 +220,25 @@ namespace ImageAnnotationApp.Forms
             try
             {
                 UpdateStatus(UIConstants.StatusMessages.Saving);
-                await _projectService.UpdateAsync(project.Id, new UpdateProjectDto
+
+                var updated = await _projectService.UpdateAsync(project.Id, new UpdateProjectDto
                 {
                     Name = name,
                     Description = description
                 });
 
-                MessageBox.Show(UIConstants.Messages.UpdateSuccess, UIConstants.MessageTitles.Success,
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                await LoadProjectsAsync();
+                if (updated != null)
+                {
+                    MessageBox.Show(UIConstants.Messages.UpdateSuccess, UIConstants.MessageTitles.Success,
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    await LoadProjectsAsync();
+                }
+                else
+                {
+                    MessageBox.Show(UIConstants.Messages.UpdateFailed, UIConstants.MessageTitles.Error,
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    UpdateStatus(UIConstants.Messages.UpdateFailed);
+                }
             }
             catch (Exception ex)
             {
@@ -224,6 +318,19 @@ namespace ImageAnnotationApp.Forms
             form.CancelButton = btnCancel;
 
             return form.ShowDialog() == DialogResult.OK ? textBox.Text : null;
+        }
+    }
+
+    // 小工具：在需要时从非 UI 线程回到 UI 线程调用（保留以备其它调用）
+    internal static class ControlExtensions
+    {
+        public static void InvokeIfRequired(this Control ctl, Action action)
+        {
+            if (ctl == null) return;
+            if (ctl.InvokeRequired)
+                ctl.Invoke(action);
+            else
+                action();
         }
     }
 }

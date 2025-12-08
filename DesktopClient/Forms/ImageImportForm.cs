@@ -1,5 +1,7 @@
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
+using ImageAnnotationApp.Controls;
+using ImageAnnotationApp.Helpers;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -39,7 +41,7 @@ namespace ImageAnnotationApp.Forms
             _queueService = new QueueService();
             _queue = queue;
             InitializeCustomComponents();
-            LoadExistingImagesAsync();
+            _ = LoadExistingImagesAsync();
         }
 
         private void InitializeCustomComponents()
@@ -905,4 +907,3 @@ namespace ImageAnnotationApp.Forms
         }
     }
 }
-

@@ -1,3 +1,8 @@
+using System;
+using System.Drawing;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
 using ImageAnnotationApp.Helpers;
@@ -24,32 +29,115 @@ namespace ImageAnnotationApp.Forms
         {
             this.Text = UIConstants.FormatWindowTitle("队列管理");
             this.Size = UIConstants.WindowSizes.Large;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.Font = UIConstants.Fonts.Normal;
+            this.BackColor = UIConstants.Colors.Background;
 
-            // 筛选面板
+            // 筛选面板（置于最顶端）
             var filterPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 50,
-                Padding = new Padding(10)
+                Height = 54,
+                Padding = new Padding(10),
+                BackColor = this.BackColor
             };
 
             var lblProject = new Label
             {
                 Text = "项目筛选:",
                 Location = new Point(10, 15),
-                AutoSize = true
+                AutoSize = true,
+                Font = UIConstants.Fonts.Normal
             };
 
             cmbProjectFilter = new ComboBox
             {
                 Location = new Point(100, 12),
                 Size = new Size(250, 23),
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = UIConstants.Fonts.Normal
             };
             cmbProjectFilter.SelectedIndexChanged += async (s, e) => await LoadQueuesAsync();
 
             filterPanel.Controls.Add(lblProject);
             filterPanel.Controls.Add(cmbProjectFilter);
+
+            // 按钮面板（位于筛选面板下方）
+            var buttonPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = UIConstants.ButtonSizes.Medium.Height + UIConstants.Spacing.Large * 2,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = this.BackColor
+            };
+
+            var flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                BackColor = this.BackColor
+            };
+
+            var btnAdd = new Button
+            {
+                Text = "新建队列",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
+            btnAdd.Click += BtnAdd_ClickAsync;
+
+            var btnEdit = new Button
+            {
+                Text = "编辑",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
+            btnEdit.Click += BtnEdit_ClickAsync;
+
+            var btnManage = new Button
+            {
+                Text = "管理队列",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
+            btnManage.Click += BtnManage_Click;
+
+            var btnDelete = new Button
+            {
+                Text = "删除",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
+            btnDelete.Click += async (s, e) => await BtnDelete_ClickAsync();
+
+            var btnRefresh = new Button
+            {
+                Text = "刷新",
+                Size = UIConstants.ButtonSizes.Medium,
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
+            };
+            btnRefresh.Click += async (s, e) => await LoadQueuesAsync();
+
+            // 应用幽灵按钮样式（默认与背景相同、有细边框，悬停变天蓝色）
+            ApplyGhostButtonStyle(btnAdd);
+            ApplyGhostButtonStyle(btnEdit);
+            ApplyGhostButtonStyle(btnManage);
+            ApplyGhostButtonStyle(btnDelete);
+            ApplyGhostButtonStyle(btnRefresh);
+
+            flow.Controls.Add(btnAdd);
+            flow.Controls.Add(btnEdit);
+            flow.Controls.Add(btnManage);
+            flow.Controls.Add(btnDelete);
+            flow.Controls.Add(btnRefresh);
+            buttonPanel.Controls.Add(flow);
 
             // ListView
             listView = new ListView
@@ -57,7 +145,8 @@ namespace ImageAnnotationApp.Forms
                 Dock = DockStyle.Fill,
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true
+                GridLines = true,
+                Font = UIConstants.Fonts.Normal
             };
             listView.Columns.Add("ID", 50);
             listView.Columns.Add("队列名称", 200);
@@ -69,31 +158,32 @@ namespace ImageAnnotationApp.Forms
             listView.Columns.Add("操作提示", 150);
             listView.DoubleClick += ListView_DoubleClick;
 
-            // 工具栏
-            var toolStrip = new ToolStrip();
-            var btnAdd = new ToolStripButton("新建队列");
-            var btnEdit = new ToolStripButton("编辑");
-            var btnManage = new ToolStripButton("管理队列");
-            var btnDelete = new ToolStripButton("删除");
-            var btnRefresh = new ToolStripButton("刷新");
-
-            btnAdd.Click += BtnAdd_ClickAsync;
-            btnEdit.Click += BtnEdit_ClickAsync;
-            btnManage.Click += BtnManage_Click;
-            btnDelete.Click += async (s, e) => await BtnDelete_ClickAsync();
-            btnRefresh.Click += async (s, e) => await LoadQueuesAsync();
-
-            toolStrip.Items.Add(btnAdd);
-            toolStrip.Items.Add(btnEdit);
-            toolStrip.Items.Add(btnManage);
-            toolStrip.Items.Add(btnDelete);
-            toolStrip.Items.Add(new ToolStripSeparator());
-            toolStrip.Items.Add(btnRefresh);
-
+            // Controls 添加顺序：先 listView，再按钮面板，再筛选面板
             this.Controls.Add(listView);
-            this.Controls.Add(toolStrip);
+            this.Controls.Add(buttonPanel);
             this.Controls.Add(filterPanel);
-            toolStrip.Dock = DockStyle.Top;
+        }
+
+        // 幽灵按钮样式工具（与其它窗体一致）
+        private void ApplyGhostButtonStyle(Button btn, Color? hoverColor = null)
+        {
+            if (btn == null) return;
+
+            var normalColor = UIConstants.Colors.Background;
+            var hover = hoverColor ?? Color.FromArgb(64, 158, 255);
+
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.LightGray;
+            btn.BackColor = normalColor;
+            btn.ForeColor = UIConstants.Colors.TextPrimary;
+            btn.Cursor = Cursors.Hand;
+
+            btn.FlatAppearance.MouseDownBackColor = hover;
+            btn.FlatAppearance.MouseOverBackColor = hover;
+
+            btn.MouseEnter += (s, e) => btn.BackColor = hover;
+            btn.MouseLeave += (s, e) => btn.BackColor = normalColor;
         }
 
         private async Task LoadProjectsAsync()
