@@ -13,8 +13,6 @@ namespace ImageAnnotationApp.Forms
         private readonly AuthService _authService;
         private readonly ContextMenuStrip _adminShortcutMenu;
         private NavigationManager _navigationManager = null!;
-
-        // 新增：表示当前左侧导航处于管理员视图（true）或用户视图（false）
         private bool _isAdminView = false;
 
         public NavigationManager Navigation => _navigationManager;
@@ -25,21 +23,18 @@ namespace ImageAnnotationApp.Forms
 
             _authService = AuthService.Instance;
             _adminShortcutMenu = BuildAdminShortcutMenu();
-            // Designer 中存在 btnAdminEntry，绑定上下文菜单
+           
             if (btnAdminEntry != null)
                 btnAdminEntry.ContextMenuStrip = _adminShortcutMenu;
 
-            // 绑定左侧账户按钮行为（替代顶部账户）
             if (navBtnAccount != null)
             {
                 navBtnAccount.Click += NavBtnAccount_Click;
             }
 
-            // 初始不显示侧边导航（符合需求）
             if (panelNav != null)
                 panelNav.Visible = false;
 
-            // 响应尺寸变化以便居中欢迎页按钮和调整侧栏按钮宽度
             this.Resize += MainForm_Resize;
             if (panelMain != null)
                 panelMain.SizeChanged += (s, e) => CenterWelcomeButtons();
@@ -47,14 +42,14 @@ namespace ImageAnnotationApp.Forms
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            // 初始化导航管理器（panelMain 已在 Designer 中定义）
+            // 初始化导航管理器
             _navigationManager = new NavigationManager(this, panelMain, lblStatus);
 
-            // 默认隐藏侧边导航（不在登录后立刻显示）
+            // 默认隐藏侧边导航
             if (panelNav != null)
                 panelNav.Visible = false;
 
-            // 设置侧边栏按钮外观（字体加粗、颜色更柔和，文字居中）
+            // 设置侧边栏按钮外观
             UpdateNavButtonsAppearance();
 
             // 设置用户信息
@@ -62,13 +57,13 @@ namespace ImageAnnotationApp.Forms
             {
                 lblUser.Text = $"当前用户: {_authService.CurrentUser.Username} ({GetRoleDisplayName(_authService.CurrentUser.Role)})";
 
-                // 游客可以进入项目，但不能执行管理/新建操作（仍在各页面里限制）
+                // 游客可以进入项目，但不能执行管理/新建操作
                 if (btnUserEntry != null) btnUserEntry.Enabled = true;
 
-                // 管理员专属入口可见性（由侧栏按钮控制）
+                // 管理员专属入口可见性
                 if (btnAdminEntry != null) btnAdminEntry.Visible = _authService.IsAdmin;
 
-                // 默认视图：普通用户视图（即使是管理员也先不切换到 admin view）
+                // 默认视图：普通用户视图
                 _isAdminView = false;
 
                 // 控制左侧切换按钮，仅管理员可见
@@ -78,7 +73,7 @@ namespace ImageAnnotationApp.Forms
                     UpdateSwitchButtonText();
                 }
 
-                // 根据是否为管理员，设置初始侧栏项可见性（管理员初始以用户视图展示）
+                // 根据是否为管理员，设置初始侧栏项可见性
                 UpdateNavForAdminView(_isAdminView);
             }
 
@@ -92,7 +87,6 @@ namespace ImageAnnotationApp.Forms
             }
             else
             {
-                // 强制设置停靠以防被覆盖/位置不当，并确保显示性同步
                 navBtnSwitchView.Dock = DockStyle.Top;
                 navBtnAccount.Dock = DockStyle.Bottom;
                 navBtnSwitchView.Visible = _authService?.IsAdmin ?? false;
@@ -101,8 +95,6 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        // ========== Navigation show/hide + handlers ==========
-
         private void ShowNav()
         {
             if (panelNav != null && !panelNav.Visible)
@@ -110,7 +102,7 @@ namespace ImageAnnotationApp.Forms
                 panelNav.Visible = true;
                 UpdateNavButtonWidths();
 
-                // 自动设定当前激活项（如果没有）为第一个可见按钮
+                // 自动设定当前激活项为第一个可见按钮
                 var first = flowLayoutPanelNav?.Controls.OfType<Button>().FirstOrDefault(b => b.Visible);
                 if (first != null)
                     SetActiveNav(first);
@@ -131,8 +123,7 @@ namespace ImageAnnotationApp.Forms
 
         private void btnUserEntry_Click(object? sender, EventArgs e)
         {
-            // 游客也允许进入项目（需求1）
-            // 进入用户功能时切换为用户视图（便于管理员调试）
+            // 进入用户功能时切换为用户视图
             _isAdminView = false;
             UpdateNavForAdminView(_isAdminView);
             UpdateSwitchButtonText();
@@ -164,7 +155,6 @@ namespace ImageAnnotationApp.Forms
             menuAdminProjects_Click(sender, e);
         }
 
-        // 新增：左侧切换按钮事件（管理员可见）
         private void NavBtnSwitchView_Click(object? sender, EventArgs e)
         {
             if (!_authService.IsAdmin) return;
@@ -269,8 +259,6 @@ namespace ImageAnnotationApp.Forms
             _navigationManager.NavigateToRoot(new DataExportForm());
         }
 
-        // ========== Layout / Styling helpers ==========
-
         private void MainForm_Resize(object? sender, EventArgs e)
         {
             UpdateNavButtonWidths();
@@ -346,7 +334,6 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        // 新增：根据当前 _isAdminView 控制侧边栏显示的项（管理员可以在两种视图间切换）
         private void UpdateNavForAdminView(bool isAdminView)
         {
             if (_authService == null) return;
@@ -438,8 +425,6 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        // ========== Account / Admin menu builders ==========
-
         private ContextMenuStrip BuildAdminShortcutMenu()
         {
             var menu = new ContextMenuStrip();
@@ -464,8 +449,6 @@ namespace ImageAnnotationApp.Forms
                 Application.Exit();
             }
         }
-
-        // ========== Utilities ==========
 
         private string GetRoleDisplayName(string role)
         {

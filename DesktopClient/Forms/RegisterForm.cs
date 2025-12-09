@@ -19,7 +19,7 @@ namespace ImageAnnotationApp.Forms
             string password = txtPassword.Text.Trim();
             string confirm = txtConfirmPassword.Text.Trim();
 
-            // --- 1. 基础空值校验 ---
+            // 1. 基础空值校验
             if (string.IsNullOrWhiteSpace(username))
             {
                 MessageBox.Show("请输入用户名", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -41,7 +41,7 @@ namespace ImageAnnotationApp.Forms
                 return;
             }
 
-            // --- 2. 专业密码强度校验 ---
+            // 2. 专业密码强度校验
             if (password.Length < 6)
             {
                 MessageBox.Show("密码长度至少需要 6 位。", "弱密码警告", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -55,7 +55,7 @@ namespace ImageAnnotationApp.Forms
                 return;
             }
 
-            // --- 3. 禁用按钮 ---
+            // 3. 禁用按钮
             btnRegister.Enabled = false;
             btnRegister.Text = "注册中...";
 
@@ -69,9 +69,14 @@ namespace ImageAnnotationApp.Forms
 
                 var response = await _authService.RegisterAsync(registerDto);
 
+                var displayUsername = string.IsNullOrWhiteSpace(response?.Username) ? username : response.Username;
+                var displayRole = string.IsNullOrWhiteSpace(response?.Role)
+                    ? "游客（待审核）"
+                    : (response.Role == "Guest" ? "游客（待审核）" : response.Role);
+
                 MessageBox.Show(
-                    $"注册成功！您的账号: {response.Username}\n" +
-                    $"角色: {(response.Role == "Guest" ? "游客（待审核）" : response.Role)}\n" +
+                    $"注册成功！您的账号: {displayUsername}\n" +
+                    $"角色: {displayRole}\n" +
                     "请等待管理员审核后方可使用完整功能。",
                     "成功",
                     MessageBoxButtons.OK,

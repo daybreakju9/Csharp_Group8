@@ -330,22 +330,73 @@ namespace ImageAnnotationApp.Forms
                 var queue = listViewQueues.SelectedItems[0].Tag as Models.Queue;
                 if (queue != null)
                 {
-                    var result = MessageBox.Show(
-                        $"选择操作:\n\n点击'是'导出选择记录\n点击'否'导出进度数据",
-                        "快速导出",
-                        MessageBoxButtons.YesNoCancel,
-                        MessageBoxIcon.Question);
-
-                    if (result == DialogResult.Yes)
-                    {
+                    var choice = ShowQuickExportChoice(queue);
+                    if (choice == QuickExportChoice.Selections)
                         await QuickExportSelectionsAsync(queue.Id);
-                    }
-                    else if (result == DialogResult.No)
-                    {
+                    else if (choice == QuickExportChoice.Progress)
                         await QuickExportProgressAsync(queue.Id);
-                    }
                 }
             }
+        }
+
+        private enum QuickExportChoice
+        {
+            None,
+            Selections,
+            Progress
+        }
+
+        private QuickExportChoice ShowQuickExportChoice(Models.Queue queue)
+        {
+            var choice = QuickExportChoice.None;
+
+            using var dialog = new Form
+            {
+                Text = "快速导出",
+                Size = new Size(400, 200),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                BackColor = UIConstants.Colors.Background
+            };
+
+            var lbl = new Label
+            {
+                Text = $"选择操作：\n队列：{queue.ProjectName} - {queue.Name}",
+                AutoSize = true,
+                Location = new Point(20, 20),
+                Font = UIConstants.Fonts.Normal
+            };
+
+            var btnSelections = UIConstants.CreateButton("导出选择记录", UIConstants.ButtonSizes.Large, UIConstants.Colors.PrimaryButton, null);
+            btnSelections.Font = UIConstants.Fonts.Normal;
+            btnSelections.Location = new Point(30, 100);
+            ApplyGhostButtonStyle(btnSelections);
+            btnSelections.Click += (s, e) =>
+            {
+                choice = QuickExportChoice.Selections;
+                dialog.DialogResult = DialogResult.OK;
+                dialog.Close();
+            };
+
+            var btnProgress = UIConstants.CreateButton("导出进度数据", UIConstants.ButtonSizes.Large, UIConstants.Colors.PrimaryButton, null);
+            btnProgress.Font = UIConstants.Fonts.Normal;
+            btnProgress.Location = new Point(200, 100);
+            ApplyGhostButtonStyle(btnProgress);
+            btnProgress.Click += (s, e) =>
+            {
+                choice = QuickExportChoice.Progress;
+                dialog.DialogResult = DialogResult.OK;
+                dialog.Close();
+            };
+
+            dialog.Controls.Add(lbl);
+            dialog.Controls.Add(btnSelections);
+            dialog.Controls.Add(btnProgress);
+
+            dialog.ShowDialog(this);
+            return choice;
         }
 
         private async Task ExportSelectionsAsync()

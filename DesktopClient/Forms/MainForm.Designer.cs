@@ -3,8 +3,6 @@ namespace ImageAnnotationApp.Forms
     partial class MainForm
     {
         private System.ComponentModel.IContainer components = null;
-
-        // 左侧导航控件（Designer 声明）
         private System.Windows.Forms.Panel panelNav;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanelNav;
         private System.Windows.Forms.Button navBtnProjects;
@@ -12,10 +10,8 @@ namespace ImageAnnotationApp.Forms
         private System.Windows.Forms.Button navBtnAdminQueues;
         private System.Windows.Forms.Button navBtnAdminUsers;
         private System.Windows.Forms.Button navBtnAdminExport;
-        private System.Windows.Forms.Panel panelAccount; // 底部账户面板
+        private System.Windows.Forms.Panel panelAccount; 
         private System.Windows.Forms.Button navBtnAccount;
-
-        // 新增：管理员视图切换按钮（显示在底部账户上方）
         private System.Windows.Forms.Button navBtnSwitchView;
 
         protected override void Dispose(bool disposing)
@@ -38,7 +34,7 @@ namespace ImageAnnotationApp.Forms
             this.btnUserEntry = new System.Windows.Forms.Button();
             this.lblWelcome = new System.Windows.Forms.Label();
 
-            // 新增导航控件初始化
+            // 导航控件初始化
             this.panelNav = new System.Windows.Forms.Panel();
             this.flowLayoutPanelNav = new System.Windows.Forms.FlowLayoutPanel();
             this.navBtnProjects = new System.Windows.Forms.Button();
@@ -49,7 +45,7 @@ namespace ImageAnnotationApp.Forms
             this.panelAccount = new System.Windows.Forms.Panel();
             this.navBtnAccount = new System.Windows.Forms.Button();
 
-            // 新增切换视图按钮（在 panelAccount 顶部）
+            // 切换视图按钮（在 panelAccount 顶部）
             this.navBtnSwitchView = new System.Windows.Forms.Button();
 
             this.statusStrip.SuspendLayout();
@@ -59,10 +55,6 @@ namespace ImageAnnotationApp.Forms
             this.flowLayoutPanelNav.SuspendLayout();
             this.panelAccount.SuspendLayout();
             this.SuspendLayout();
-
-            //
-            // statusStrip
-            //
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.lblStatus,
             this.lblUser});
@@ -70,40 +62,30 @@ namespace ImageAnnotationApp.Forms
             this.statusStrip.Name = "statusStrip";
             this.statusStrip.Size = new System.Drawing.Size(1000, 22);
             this.statusStrip.TabIndex = 1;
-            //
-            // lblStatus
-            //
+   
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(32, 17);
             this.lblStatus.Text = "就绪";
-            //
-            // lblUser
-            //
+
             this.lblUser.Name = "lblUser";
             this.lblUser.Size = new System.Drawing.Size(953, 17);
             this.lblUser.Spring = true;
             this.lblUser.Text = "用户";
             this.lblUser.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
-            // panelMain
-            //
+ 
             this.panelMain.Controls.Add(this.panelWelcome);
             this.panelMain.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelMain.Location = new System.Drawing.Point(0, 0);
             this.panelMain.Name = "panelMain";
             this.panelMain.TabIndex = 2;
-            //
-            // panelWelcome
-            //
+       
             this.panelWelcome.Controls.Add(this.btnAdminEntry);
             this.panelWelcome.Controls.Add(this.btnUserEntry);
             this.panelWelcome.Controls.Add(this.lblWelcome);
             this.panelWelcome.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelWelcome.Name = "panelWelcome";
             this.panelWelcome.TabIndex = 1;
-            //
-            // btnAdminEntry
-            //
+    
             this.btnAdminEntry.Anchor = System.Windows.Forms.AnchorStyles.Top;
             this.btnAdminEntry.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(152)))), ((int)(((byte)(219)))));
             this.btnAdminEntry.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -118,9 +100,7 @@ namespace ImageAnnotationApp.Forms
             this.btnAdminEntry.UseVisualStyleBackColor = false;
             this.btnAdminEntry.Visible = false;
             this.btnAdminEntry.Click += new System.EventHandler(this.btnAdminEntry_Click);
-            //
-            // btnUserEntry
-            //
+ 
             this.btnUserEntry.Anchor = System.Windows.Forms.AnchorStyles.Top;
             this.btnUserEntry.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(46)))), ((int)(((byte)(204)))), ((int)(((byte)(113)))));
             this.btnUserEntry.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -134,9 +114,7 @@ namespace ImageAnnotationApp.Forms
             this.btnUserEntry.Text = "进入用户功能";
             this.btnUserEntry.UseVisualStyleBackColor = false;
             this.btnUserEntry.Click += new System.EventHandler(this.btnUserEntry_Click);
-            //
-            // lblWelcome
-            //
+     
             this.lblWelcome.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblWelcome.Font = new System.Drawing.Font("Microsoft YaHei UI", 24F, System.Drawing.FontStyle.Bold);
             this.lblWelcome.Location = new System.Drawing.Point(0, 0);
@@ -145,9 +123,7 @@ namespace ImageAnnotationApp.Forms
             this.lblWelcome.TabIndex = 0;
             this.lblWelcome.Text = "欢迎使用图片标注系统";
             this.lblWelcome.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
-            // panelNav (左侧导航面板)
-            //
+   
             this.panelNav.BackColor = System.Drawing.Color.White;
             // 顺序：flowLayoutPanelNav (Fill) + panelAccount (Bottom)
             this.panelNav.Controls.Add(this.flowLayoutPanelNav);
@@ -157,18 +133,14 @@ namespace ImageAnnotationApp.Forms
             this.panelNav.Padding = new System.Windows.Forms.Padding(8);
             this.panelNav.Size = new System.Drawing.Size(220, 0); // 高度由 Dock 与父容器决定
             this.panelNav.TabIndex = 10;
-            //
-            // flowLayoutPanelNav
-            //
+     
             this.flowLayoutPanelNav.AutoScroll = true;
             this.flowLayoutPanelNav.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowLayoutPanelNav.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.flowLayoutPanelNav.WrapContents = false;
             this.flowLayoutPanelNav.Name = "flowLayoutPanelNav";
             this.flowLayoutPanelNav.TabIndex = 0;
-            //
-            // navBtnProjects
-            //
+        
             this.navBtnProjects.BackColor = System.Drawing.Color.White;
             this.navBtnProjects.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnProjects.ForeColor = System.Drawing.Color.Black;
@@ -180,9 +152,7 @@ namespace ImageAnnotationApp.Forms
             this.navBtnProjects.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.navBtnProjects.UseVisualStyleBackColor = false;
             this.navBtnProjects.Click += new System.EventHandler(this.menuProjects_Click);
-            //
-            // navBtnAdminProjects
-            //
+
             this.navBtnAdminProjects.BackColor = System.Drawing.Color.White;
             this.navBtnAdminProjects.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnAdminProjects.ForeColor = System.Drawing.Color.Black;
@@ -195,9 +165,7 @@ namespace ImageAnnotationApp.Forms
             this.navBtnAdminProjects.UseVisualStyleBackColor = false;
             this.navBtnAdminProjects.Visible = false;
             this.navBtnAdminProjects.Click += new System.EventHandler(this.menuAdminProjects_Click);
-            //
-            // navBtnAdminQueues
-            //
+
             this.navBtnAdminQueues.BackColor = System.Drawing.Color.White;
             this.navBtnAdminQueues.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnAdminQueues.ForeColor = System.Drawing.Color.Black;
@@ -210,9 +178,7 @@ namespace ImageAnnotationApp.Forms
             this.navBtnAdminQueues.UseVisualStyleBackColor = false;
             this.navBtnAdminQueues.Visible = false;
             this.navBtnAdminQueues.Click += new System.EventHandler(this.menuAdminQueues_Click);
-            //
-            // navBtnAdminUsers
-            //
+    
             this.navBtnAdminUsers.BackColor = System.Drawing.Color.White;
             this.navBtnAdminUsers.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnAdminUsers.ForeColor = System.Drawing.Color.Black;
@@ -225,9 +191,7 @@ namespace ImageAnnotationApp.Forms
             this.navBtnAdminUsers.UseVisualStyleBackColor = false;
             this.navBtnAdminUsers.Visible = false;
             this.navBtnAdminUsers.Click += new System.EventHandler(this.menuAdminUsers_Click);
-            //
-            // navBtnAdminExport
-            //
+
             this.navBtnAdminExport.BackColor = System.Drawing.Color.White;
             this.navBtnAdminExport.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnAdminExport.ForeColor = System.Drawing.Color.Black;
@@ -240,16 +204,12 @@ namespace ImageAnnotationApp.Forms
             this.navBtnAdminExport.UseVisualStyleBackColor = false;
             this.navBtnAdminExport.Visible = false;
             this.navBtnAdminExport.Click += new System.EventHandler(this.menuAdminExport_Click);
-            //
-            // panelAccount (底部账户区)
-            //
+
             this.panelAccount.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.panelAccount.Name = "panelAccount";
             this.panelAccount.Size = new System.Drawing.Size(204, 72); // 增高以容纳切换按钮 + 账户按钮
             this.panelAccount.TabIndex = 11;
-            //
-            // navBtnSwitchView (管理员切换按钮)
-            //
+
             this.navBtnSwitchView.BackColor = System.Drawing.Color.White;
             this.navBtnSwitchView.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnSwitchView.ForeColor = System.Drawing.Color.Black;
@@ -263,9 +223,6 @@ namespace ImageAnnotationApp.Forms
             this.navBtnSwitchView.Visible = false; // 默认不显示，登录后根据权限控制
             this.navBtnSwitchView.Click += new System.EventHandler(this.NavBtnSwitchView_Click);
 
-            //
-            // navBtnAccount (与导航按钮样式一致，较矮)
-            //
             this.navBtnAccount.BackColor = System.Drawing.Color.White;
             this.navBtnAccount.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnAccount.ForeColor = System.Drawing.Color.Black;

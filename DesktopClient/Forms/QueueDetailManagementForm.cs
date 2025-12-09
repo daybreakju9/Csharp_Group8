@@ -76,127 +76,134 @@ namespace ImageAnnotationApp.Forms
 
             infoPanel.Controls.Add(lblQueueInfo);
 
-            // 工具栏 
-            var toolStrip = new ToolStrip
+            // 工具栏（流式按钮）
+            var topPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Padding = new Padding(10, 5, 10, 5),
-                GripStyle = ToolStripGripStyle.Hidden
+                Height = UIConstants.ButtonSizes.Large.Height + UIConstants.Spacing.Large * 2,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = UIConstants.Colors.Background
             };
 
-            var btnImport = new ToolStripButton
+            var flowTools = new FlowLayoutPanel
             {
-                Text = "批量导入文件夹",
-                Image = null,
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Microsoft YaHei UI", 9F)
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                AutoScroll = false,
+                BackColor = UIConstants.Colors.Background
             };
+
+            var btnImport = UIConstants.CreateButton("批量导入文件夹", UIConstants.ButtonSizes.Large, UIConstants.Colors.PrimaryButton, null);
+            btnImport.Font = UIConstants.Fonts.Normal;
+            btnImport.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
+            ApplyGhostButtonStyle(btnImport);
             btnImport.Click += async (s, e) => await ImportFromFoldersAsync();
 
-            var btnImportFiles = new ToolStripButton
-            {
-                Text = "批量导入图片",
-                Image = null,
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Microsoft YaHei UI", 9F)
-            };
+            var btnImportFiles = UIConstants.CreateButton("批量导入图片", UIConstants.ButtonSizes.Large, UIConstants.Colors.PrimaryButton, null);
+            btnImportFiles.Font = UIConstants.Fonts.Normal;
+            btnImportFiles.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
+            ApplyGhostButtonStyle(btnImportFiles);
             btnImportFiles.Click += async (s, e) => await ImportFromFilesAsync();
 
-            var btnRefresh = new ToolStripButton
-            {
-                Text = "刷新",
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Microsoft YaHei UI", 9F)
-            };
+            var btnRefresh = UIConstants.CreateButton("刷新", UIConstants.ButtonSizes.Large, UIConstants.Colors.PrimaryButton, null);
+            btnRefresh.Font = UIConstants.Fonts.Normal;
+            btnRefresh.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
+            ApplyGhostButtonStyle(btnRefresh);
             btnRefresh.Click += async (s, e) => await LoadDataAsync();
 
-            var btnDeleteSelected = new ToolStripButton
-            {
-                Text = "批量删除",
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Microsoft YaHei UI", 9F),
-                ForeColor = Color.Red
-            };
+            var btnDeleteSelected = UIConstants.CreateDangerButton("批量删除", null);
+            btnDeleteSelected.Size = UIConstants.ButtonSizes.Large;
+            btnDeleteSelected.Font = UIConstants.Fonts.Normal;
+            btnDeleteSelected.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
+            ApplyGhostButtonStyle(btnDeleteSelected, Color.FromArgb(255, 99, 71));
             btnDeleteSelected.Click += async (s, e) => await BtnDeleteSelected_ClickAsync();
 
-            var btnBack = new ToolStripButton
-            {
-                Text = "返回",
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Microsoft YaHei UI", 9F)
-            };
+            var btnBack = UIConstants.CreateButton("返回", UIConstants.ButtonSizes.Large, UIConstants.Colors.PrimaryButton, null);
+            btnBack.Font = UIConstants.Fonts.Normal;
+            ApplyGhostButtonStyle(btnBack);
             btnBack.Click += (s, e) => this.Close();
 
-            toolStrip.Items.Add(btnImport);
-            toolStrip.Items.Add(btnImportFiles);
-            toolStrip.Items.Add(new ToolStripSeparator());
-            toolStrip.Items.Add(btnRefresh);
-            toolStrip.Items.Add(btnDeleteSelected);
-            toolStrip.Items.Add(new ToolStripSeparator());
-            toolStrip.Items.Add(btnBack);
+            flowTools.Controls.Add(btnImport);
+            flowTools.Controls.Add(btnImportFiles);
+            flowTools.Controls.Add(btnRefresh);
+            flowTools.Controls.Add(btnDeleteSelected);
+            flowTools.Controls.Add(btnBack);
+            topPanel.Controls.Add(flowTools);
 
             // 搜索和视图控制面板
             var searchPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 50,
-                Padding = new Padding(15, 10, 15, 10)
+                Height = 60,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = UIConstants.Colors.Background
+            };
+
+            var searchFlow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                AutoScroll = false,
+                BackColor = UIConstants.Colors.Background
             };
 
             var lblSearch = new Label
             {
                 Text = "搜索:",
-                Location = new Point(15, 15),
                 AutoSize = true,
-                Font = new Font("Microsoft YaHei UI", 9F)
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, UIConstants.Spacing.Small, UIConstants.Spacing.Small, 0)
             };
 
             txtSearch = new TextBox
             {
-                Location = new Point(60, 12),
-                Size = new Size(300, 25),
-                Font = new Font("Microsoft YaHei UI", 9F)
+                Size = new Size(320, 25),
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
             };
             txtSearch.KeyPress += TxtSearch_KeyPress;
 
-            var btnSearch = new Button
-            {
-                Text = "搜索",
-                Location = new Point(370, 11),
-                Size = new Size(70, 27),
-                Font = new Font("Microsoft YaHei UI", 9F)
-            };
+            var btnSearch = UIConstants.CreateButton("搜索", UIConstants.ButtonSizes.Large, UIConstants.Colors.PrimaryButton, null);
+            btnSearch.Font = UIConstants.Fonts.Normal;
+            ApplyGhostButtonStyle(btnSearch);
+            btnSearch.Margin = new Padding(0, 0, UIConstants.Spacing.Large, 0);
             btnSearch.Click += async (s, e) => await PerformSearchAsync();
 
             var lblViewMode = new Label
             {
                 Text = "视图模式:",
-                Location = new Point(460, 15),
                 AutoSize = true,
-                Font = new Font("Microsoft YaHei UI", 9F)
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, UIConstants.Spacing.Small, UIConstants.Spacing.Small, 0)
             };
 
             cmbViewMode = new ComboBox
             {
-                Location = new Point(540, 12),
-                Size = new Size(150, 25),
+                Size = new Size(180, 25),
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Microsoft YaHei UI", 9F)
+                Font = UIConstants.Fonts.Normal,
+                Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0)
             };
             cmbViewMode.Items.AddRange(new object[] { "图片组视图", "图片列表视图" });
             cmbViewMode.SelectedIndex = 0;
             cmbViewMode.SelectedIndexChanged += CmbViewMode_SelectedIndexChanged;
 
-            searchPanel.Controls.AddRange(new Control[]
-            {
-                lblSearch, txtSearch, btnSearch, lblViewMode, cmbViewMode
-            });
+            searchPanel.Controls.Add(searchFlow);
+            searchFlow.Controls.Add(lblSearch);
+            searchFlow.Controls.Add(txtSearch);
+            searchFlow.Controls.Add(btnSearch);
+            searchFlow.Controls.Add(lblViewMode);
+            searchFlow.Controls.Add(cmbViewMode);
 
             // 主内容区 
             var mainPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10)
+                Padding = new Padding(UIConstants.Spacing.Medium)
             };
 
             // 图片组视图面板
@@ -265,7 +272,7 @@ namespace ImageAnnotationApp.Forms
             this.Controls.Add(mainPanel);
             this.Controls.Add(bottomPanel);
             this.Controls.Add(searchPanel);
-            this.Controls.Add(toolStrip);
+            this.Controls.Add(topPanel);
             this.Controls.Add(infoPanel);
         }
 
@@ -521,6 +528,25 @@ namespace ImageAnnotationApp.Forms
             txtSearch.Text = "";
 
             await LoadDataAsync();
+        }
+
+        // 统一按钮“幽灵”样式
+        private void ApplyGhostButtonStyle(Button btn, Color? hoverColor = null)
+        {
+            if (btn == null) return;
+
+            var normalColor = UIConstants.Colors.Background;
+            var hover = hoverColor ?? Color.FromArgb(64, 158, 255);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.LightGray;
+            btn.BackColor = normalColor;
+            btn.ForeColor = UIConstants.Colors.TextPrimary;
+            btn.Cursor = Cursors.Hand;
+            btn.FlatAppearance.MouseDownBackColor = hover;
+            btn.FlatAppearance.MouseOverBackColor = hover;
+            btn.MouseEnter += (s, e) => btn.BackColor = hover;
+            btn.MouseLeave += (s, e) => btn.BackColor = normalColor;
         }
 
         private void ListViewGroups_DoubleClick(object? sender, EventArgs e)
