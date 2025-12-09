@@ -4,9 +4,7 @@ using System.Windows.Forms;
 
 namespace ImageAnnotationApp.Controls
 {
-    /// <summary>
     /// 双缓冲PictureBox，优化图片绘制性能
-    /// </summary>
     public class OptimizedPictureBox : PictureBox
     {
         public OptimizedPictureBox()

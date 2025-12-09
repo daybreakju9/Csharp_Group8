@@ -4,9 +4,7 @@ using ImageAnnotationApp.Helpers;
 
 namespace ImageAnnotationApp.Forms
 {
-    /// <summary>
     /// 所有子窗体的基类，提供统一的导航功能
-    /// </summary>
     public class BaseForm : Form
     {
         protected NavigationManager? Navigation { get; private set; }
@@ -26,9 +24,7 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        /// <summary>
         /// 查找MainForm实例
-        /// </summary>
         protected MainForm? FindMainForm()
         {
             // 方法1: 通过 Parent 向上查找
@@ -54,9 +50,7 @@ namespace ImageAnnotationApp.Forms
             return null;
         }
 
-        /// <summary>
         /// 导航到指定窗体
-        /// </summary>
         protected void NavigateTo(Form form)
         {
             if (Navigation != null)
@@ -70,9 +64,7 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        /// <summary>
         /// 返回上一个窗体
-        /// </summary>
         protected void NavigateBack()
         {
             if (Navigation != null)
@@ -86,9 +78,7 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        /// <summary>
         /// 更新状态栏
-        /// </summary>
         protected void UpdateStatus(string message)
         {
             Navigation?.UpdateStatus(message);

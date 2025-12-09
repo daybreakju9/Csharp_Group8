@@ -7,10 +7,7 @@ using System.Collections.Generic;
 
 namespace ImageAnnotationApp.Forms
 {
-    /// <summary>
-    /// 队列图片管理表单 - 重构版
-    /// 支持分页、搜索、图片组管理
-    /// </summary>
+    /// 队列图片管理表单,支持分页、搜索、图片组管理
     public partial class QueueDetailManagementForm : Form
     {
         private readonly Models.Queue _queue;
@@ -59,7 +56,7 @@ namespace ImageAnnotationApp.Forms
             this.Size = new Size(1400, 900);
             this.StartPosition = FormStartPosition.CenterParent;
 
-            // ========== 顶部信息面板 ==========
+            // 顶部信息面板
             var infoPanel = new Panel
             {
                 Dock = DockStyle.Top,
@@ -79,7 +76,7 @@ namespace ImageAnnotationApp.Forms
 
             infoPanel.Controls.Add(lblQueueInfo);
 
-            // ========== 工具栏 ==========
+            // 工具栏 
             var toolStrip = new ToolStrip
             {
                 Dock = DockStyle.Top,
@@ -138,7 +135,7 @@ namespace ImageAnnotationApp.Forms
             toolStrip.Items.Add(new ToolStripSeparator());
             toolStrip.Items.Add(btnBack);
 
-            // ========== 搜索和视图控制面板 ==========
+            // 搜索和视图控制面板
             var searchPanel = new Panel
             {
                 Dock = DockStyle.Top,
@@ -195,7 +192,7 @@ namespace ImageAnnotationApp.Forms
                 lblSearch, txtSearch, btnSearch, lblViewMode, cmbViewMode
             });
 
-            // ========== 主内容区 ==========
+            // 主内容区 
             var mainPanel = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -213,7 +210,7 @@ namespace ImageAnnotationApp.Forms
             mainPanel.Controls.Add(panelGroupView);
             mainPanel.Controls.Add(panelImageView);
 
-            // ========== 底部面板 ==========
+            // 底部面板
             var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
@@ -264,7 +261,7 @@ namespace ImageAnnotationApp.Forms
                 btnPrevPage, lblPageInfo, btnNextPage, lblStats
             });
 
-            // ========== 添加所有控件到窗体 ==========
+            // 添加所有控件到窗体 
             this.Controls.Add(mainPanel);
             this.Controls.Add(bottomPanel);
             this.Controls.Add(searchPanel);

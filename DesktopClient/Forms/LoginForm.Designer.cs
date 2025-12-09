@@ -30,7 +30,7 @@ namespace ImageAnnotationApp.Forms
             this.lblTitle.Font = new System.Drawing.Font("Microsoft YaHei UI", 20F, System.Drawing.FontStyle.Bold);
             this.lblTitle.Location = new System.Drawing.Point(0, 20);
             this.lblTitle.Name = "lblTitle";
-            this.lblTitle.Size = new System.Drawing.Size(400, 40);
+            this.lblTitle.Size = new System.Drawing.Size(420, 45);
             this.lblTitle.TabIndex = 0;
             this.lblTitle.Text = "用户登录";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -39,37 +39,39 @@ namespace ImageAnnotationApp.Forms
             //
             this.lblUsername.AutoSize = false;
             this.lblUsername.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F);
-            this.lblUsername.Location = new System.Drawing.Point(90, 90);
+            this.lblUsername.Location = new System.Drawing.Point(80, 95);
             this.lblUsername.Name = "lblUsername";
-            this.lblUsername.Size = new System.Drawing.Size(220, 22);
+            this.lblUsername.Size = new System.Drawing.Size(260, 22);
             this.lblUsername.TabIndex = 1;
             this.lblUsername.Text = "用户名";
             this.lblUsername.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // txtUsername
             //
-            this.txtUsername.Location = new System.Drawing.Point(90, 115);
+            this.txtUsername.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F);
+            this.txtUsername.Location = new System.Drawing.Point(80, 120);
             this.txtUsername.Name = "txtUsername";
-            this.txtUsername.Size = new System.Drawing.Size(220, 23);
+            this.txtUsername.Size = new System.Drawing.Size(260, 25);
             this.txtUsername.TabIndex = 0;
             //
             // lblPassword
             //
             this.lblPassword.AutoSize = false;
             this.lblPassword.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F);
-            this.lblPassword.Location = new System.Drawing.Point(90, 150);
+            this.lblPassword.Location = new System.Drawing.Point(80, 160);
             this.lblPassword.Name = "lblPassword";
-            this.lblPassword.Size = new System.Drawing.Size(220, 22);
+            this.lblPassword.Size = new System.Drawing.Size(260, 22);
             this.lblPassword.TabIndex = 3;
             this.lblPassword.Text = "密码";
             this.lblPassword.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // txtPassword
             //
-            this.txtPassword.Location = new System.Drawing.Point(90, 175);
+            this.txtPassword.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F);
+            this.txtPassword.Location = new System.Drawing.Point(80, 185);
             this.txtPassword.Name = "txtPassword";
             this.txtPassword.PasswordChar = '*';
-            this.txtPassword.Size = new System.Drawing.Size(220, 23);
+            this.txtPassword.Size = new System.Drawing.Size(260, 25);
             this.txtPassword.TabIndex = 1;
             this.txtPassword.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtPassword_KeyDown);
             //
@@ -77,10 +79,12 @@ namespace ImageAnnotationApp.Forms
             //
             this.btnLogin.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
             this.btnLogin.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLogin.FlatAppearance.BorderSize = 0;
             this.btnLogin.ForeColor = System.Drawing.Color.White;
-            this.btnLogin.Location = new System.Drawing.Point(130, 215);
+            this.btnLogin.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnLogin.Location = new System.Drawing.Point(80, 235);
             this.btnLogin.Name = "btnLogin";
-            this.btnLogin.Size = new System.Drawing.Size(140, 40);
+            this.btnLogin.Size = new System.Drawing.Size(120, 44);
             this.btnLogin.TabIndex = 2;
             this.btnLogin.Text = "登录";
             this.btnLogin.UseVisualStyleBackColor = false;
@@ -90,9 +94,12 @@ namespace ImageAnnotationApp.Forms
             //
             this.btnRegister.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.btnRegister.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnRegister.Location = new System.Drawing.Point(130, 265);
+            this.btnRegister.FlatAppearance.BorderSize = 1;
+            this.btnRegister.ForeColor = System.Drawing.Color.Black;
+            this.btnRegister.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F);
+            this.btnRegister.Location = new System.Drawing.Point(220, 235);
             this.btnRegister.Name = "btnRegister";
-            this.btnRegister.Size = new System.Drawing.Size(140, 36);
+            this.btnRegister.Size = new System.Drawing.Size(120, 44);
             this.btnRegister.TabIndex = 3;
             this.btnRegister.Text = "注册新账号";
             this.btnRegister.UseVisualStyleBackColor = false;
@@ -102,7 +109,7 @@ namespace ImageAnnotationApp.Forms
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(400, 330);
+            this.ClientSize = new System.Drawing.Size(420, 320);
             this.Controls.Add(this.btnRegister);
             this.Controls.Add(this.btnLogin);
             this.Controls.Add(this.txtPassword);

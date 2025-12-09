@@ -260,7 +260,7 @@ namespace ImageAnnotationApp.Forms
                     return;
                 }
 
-                var projectId = await ShowQueueDialogAsync(null);
+                var projectId = ShowQueueDialog(null);
                 if (projectId.HasValue)
                 {
                     await LoadQueuesAsync();
@@ -287,7 +287,7 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
-                var projectId = await ShowQueueDialogAsync(queue);
+                var projectId = ShowQueueDialog(queue);
                 if (projectId.HasValue)
                 {
                     await LoadQueuesAsync();
@@ -300,7 +300,7 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        private async Task<int?> ShowQueueDialogAsync(Models.Queue? existingQueue)
+        private int? ShowQueueDialog(Models.Queue? existingQueue)
         {
             var form = new Form
             {
@@ -334,7 +334,7 @@ namespace ImageAnnotationApp.Forms
             {
                 cmbProject.SelectedIndex = 0;
             }
-            cmbProject.Enabled = existingQueue == null; // 编辑时不允许修改项目
+            cmbProject.Enabled = existingQueue == null; 
 
             var lblName = new Label { Text = "队列名称:", Location = new Point(20, 60), AutoSize = true };
             var txtName = new TextBox

@@ -29,7 +29,6 @@ namespace ImageAnnotationApp.Forms
             _queueId = queueId;
             _queueName = queueName;
             InitializeCustomComponents();
-            // 异步加载，不等待，避免阻塞UI
             _ = LoadNextGroupAsync();
         }
 
@@ -66,7 +65,7 @@ namespace ImageAnnotationApp.Forms
                 Text = "加载中..."
             };
 
-            // 图片显示面板 - 启用双缓冲
+            // 图片显示面板
             panelImages = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -114,11 +113,11 @@ namespace ImageAnnotationApp.Forms
 
         private void ImageSelectionForm_Resize(object? sender, EventArgs e)
         {
-            // 防止频繁调用，使用计时器延迟重新布局
+            // 防止频繁调用
             if (_resizeTimer == null)
             {
                 _resizeTimer = new System.Windows.Forms.Timer();
-                _resizeTimer.Interval = 300; // 300ms 延迟
+                _resizeTimer.Interval = 300; 
                 _resizeTimer.Tick += (s, args) =>
                 {
                     _resizeTimer?.Stop();
@@ -144,7 +143,7 @@ namespace ImageAnnotationApp.Forms
 
         private void ImageSelectionForm_SizeChanged(object? sender, EventArgs e)
         {
-            // 委托给 Resize 事件处理
+            
         }
 
         private void ImageSelectionForm_FormClosing(object? sender, FormClosingEventArgs e)
@@ -163,7 +162,6 @@ namespace ImageAnnotationApp.Forms
             if (_currentGroup == null || _currentGroup.Images.Count == 0)
                 return;
 
-            // 暂停绘制
             panelImages.SuspendLayout();
 
             try
@@ -180,7 +178,7 @@ namespace ImageAnnotationApp.Forms
                 int labelHeight = 20;
                 int spacing = 10;
 
-                // 计算最优的行列布局，使图片尽可能大
+                // 计算最优的行列布局
                 int bestCols = 1;
                 int bestImageSize = 0;
 
@@ -509,7 +507,6 @@ namespace ImageAnnotationApp.Forms
             pictureBox.BorderStyle = BorderStyle.Fixed3D;
             pictureBox.BackColor = Color.LightGreen;
             
-            // 如果 PictureBox 的父控件是 Panel，也设置 Panel 的背景色
             if (pictureBox.Parent is Panel parentPanel)
             {
                 parentPanel.BackColor = Color.LightBlue;
@@ -520,7 +517,7 @@ namespace ImageAnnotationApp.Forms
             // 自动提交
             if (chkAutoSubmit.Checked)
             {
-                await Task.Delay(100); // 短暂延迟
+                await Task.Delay(100); 
                 await SubmitSelectionAsync();
             }
         }

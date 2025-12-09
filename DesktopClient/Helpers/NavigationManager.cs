@@ -22,7 +22,7 @@ namespace ImageAnnotationApp.Helpers
             _navigationStack = new Stack<Control>();
         }
 
-        /// 加载 Form（兼容旧代码），内部包装为 Control
+        /// 加载 Form
         public void NavigateTo(Form form, bool addToStack = true)
         {
             if (form == null) throw new ArgumentNullException(nameof(form));
@@ -117,7 +117,7 @@ namespace ImageAnnotationApp.Helpers
 
         public MainForm GetMainForm() => _mainForm;
 
-        // ========== 辅助 ==========
+        // 辅助
 
         private Control WrapFormAsControl(Form form)
         {

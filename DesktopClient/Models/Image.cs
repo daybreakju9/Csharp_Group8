@@ -2,9 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace ImageAnnotationApp.Models
 {
-    /// <summary>
     /// 图片模型
-    /// </summary>
     public class Image
     {
         public int Id { get; set; }
@@ -21,9 +19,7 @@ namespace ImageAnnotationApp.Models
         public DateTime CreatedAt { get; set; }
     }
 
-    /// <summary>
     /// 图片组模型
-    /// </summary>
     public class ImageGroup
     {
         public int Id { get; set; }
@@ -36,9 +32,7 @@ namespace ImageAnnotationApp.Models
         public List<Image> Images { get; set; } = new();
     }
 
-    /// <summary>
     /// 分页结果模型
-    /// </summary>
     public class PagedResult<T>
     {
         public List<T> Items { get; set; } = new();

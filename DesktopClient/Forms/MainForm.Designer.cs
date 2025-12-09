@@ -107,6 +107,7 @@ namespace ImageAnnotationApp.Forms
             this.btnAdminEntry.Anchor = System.Windows.Forms.AnchorStyles.Top;
             this.btnAdminEntry.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(152)))), ((int)(((byte)(219)))));
             this.btnAdminEntry.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAdminEntry.FlatAppearance.BorderSize = 0;
             this.btnAdminEntry.Font = new System.Drawing.Font("Microsoft YaHei UI", 12F, System.Drawing.FontStyle.Bold);
             this.btnAdminEntry.ForeColor = System.Drawing.Color.White;
             this.btnAdminEntry.Location = new System.Drawing.Point(520, 390);
@@ -123,6 +124,7 @@ namespace ImageAnnotationApp.Forms
             this.btnUserEntry.Anchor = System.Windows.Forms.AnchorStyles.Top;
             this.btnUserEntry.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(46)))), ((int)(((byte)(204)))), ((int)(((byte)(113)))));
             this.btnUserEntry.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnUserEntry.FlatAppearance.BorderSize = 0;
             this.btnUserEntry.Font = new System.Drawing.Font("Microsoft YaHei UI", 12F, System.Drawing.FontStyle.Bold);
             this.btnUserEntry.ForeColor = System.Drawing.Color.White;
             this.btnUserEntry.Location = new System.Drawing.Point(280, 390);
@@ -251,9 +253,9 @@ namespace ImageAnnotationApp.Forms
             this.navBtnSwitchView.BackColor = System.Drawing.Color.White;
             this.navBtnSwitchView.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.navBtnSwitchView.ForeColor = System.Drawing.Color.Black;
-            this.navBtnSwitchView.Margin = new System.Windows.Forms.Padding(3, 3, 3, 2);
+            this.navBtnSwitchView.Margin = new System.Windows.Forms.Padding(3, 2, 3, 4);
             this.navBtnSwitchView.Name = "navBtnSwitchView";
-            this.navBtnSwitchView.Size = new System.Drawing.Size(204, 28);
+            this.navBtnSwitchView.Size = new System.Drawing.Size(204, 36);
             this.navBtnSwitchView.TabIndex = 99;
             this.navBtnSwitchView.Text = "切换视图";
             this.navBtnSwitchView.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;

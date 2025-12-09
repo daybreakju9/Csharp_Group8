@@ -20,7 +20,6 @@ namespace ImageAnnotationApp.Forms
 
         private void InitializeCustomComponents()
         {
-            // 使窗口风格与其它页面一致（中等大小）
             this.Text = UIConstants.FormatWindowTitle("项目管理");
             this.Size = UIConstants.WindowSizes.Medium;
             this.StartPosition = FormStartPosition.CenterParent;
@@ -43,7 +42,7 @@ namespace ImageAnnotationApp.Forms
             listView.Columns.Add("创建者", 120);
             listView.Columns.Add("创建时间", 150);
 
-            // 顶部工具栏：使用 Panel + FlowLayoutPanel 替代 ToolStrip，以便统一按钮大小/样式
+            // 顶部工具栏
             var topPanel = new Panel
             {
                 Dock = DockStyle.Top,
@@ -62,7 +61,7 @@ namespace ImageAnnotationApp.Forms
                 BackColor = this.BackColor
             };
 
-            // 按钮：使用统一的 UIConstants 样式（但默认背景改为与窗体背景一致，悬停变蓝）
+            // 按钮
             var btnAdd = UIConstants.CreatePrimaryButton("新建项目", null);
             btnAdd.Size = UIConstants.ButtonSizes.Medium;
             btnAdd.Font = UIConstants.Fonts.Normal;
@@ -85,7 +84,7 @@ namespace ImageAnnotationApp.Forms
             btnRefresh.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
             btnRefresh.Click += async (s, e) => await LoadProjectsAsync();
 
-            // 应用幽灵样式（默认与背景同色、有边框、悬停变天蓝色）
+            // 应用幽灵样式
             ApplyGhostButtonStyle(btnAdd);
             ApplyGhostButtonStyle(btnEdit);
             ApplyGhostButtonStyle(btnDelete);
@@ -99,30 +98,25 @@ namespace ImageAnnotationApp.Forms
 
             topPanel.Controls.Add(flow);
 
-            // 添加控件到窗体（注意顺序：先添加填充的 listView，再添加顶部面板）
+            // 添加控件到窗体
             this.Controls.Add(listView);
             this.Controls.Add(topPanel);
         }
 
-        // 把“幽灵”按钮样式封装，hoverColor 可自定义（默认使用之前的天蓝色）
         private void ApplyGhostButtonStyle(Button btn, Color? hoverColor = null)
         {
             if (btn == null) return;
 
-            var normalColor = UIConstants.Colors.Background; // 与窗体背景相同
-            var hover = hoverColor ?? Color.FromArgb(64, 158, 255); // 之前使用的天蓝色
+            var normalColor = UIConstants.Colors.Background;
+            var hover = hoverColor ?? Color.FromArgb(64, 158, 255); 
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 1;
             btn.FlatAppearance.BorderColor = Color.LightGray;
             btn.BackColor = normalColor;
             btn.ForeColor = UIConstants.Colors.TextPrimary;
             btn.Cursor = Cursors.Hand;
-
-            // 保证按钮在高对比主题下也有边框显示
             btn.FlatAppearance.MouseDownBackColor = hover;
             btn.FlatAppearance.MouseOverBackColor = hover;
-
-            // 兼容运行时（部分情况下 ToolStrip/FlowLayout 可能覆盖颜色），再附加事件确保效果
             btn.MouseEnter += (s, e) =>
             {
                 btn.BackColor = hover;
@@ -320,8 +314,6 @@ namespace ImageAnnotationApp.Forms
             return form.ShowDialog() == DialogResult.OK ? textBox.Text : null;
         }
     }
-
-    // 小工具：在需要时从非 UI 线程回到 UI 线程调用（保留以备其它调用）
     internal static class ControlExtensions
     {
         public static void InvokeIfRequired(this Control ctl, Action action)

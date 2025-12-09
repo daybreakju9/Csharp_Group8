@@ -35,12 +35,6 @@ namespace ImageAnnotationApp.Forms
                 navBtnAccount.Click += NavBtnAccount_Click;
             }
 
-            // 绑定切换按钮（Designer 中新增 navBtnSwitchView）
-            if (navBtnSwitchView != null)
-            {
-                navBtnSwitchView.Click += NavBtnSwitchView_Click;
-            }
-
             // 初始不显示侧边导航（符合需求）
             if (panelNav != null)
                 panelNav.Visible = false;
@@ -101,7 +95,7 @@ namespace ImageAnnotationApp.Forms
                 // 强制设置停靠以防被覆盖/位置不当，并确保显示性同步
                 navBtnSwitchView.Dock = DockStyle.Top;
                 navBtnAccount.Dock = DockStyle.Bottom;
-                navBtnSwitchView.Visible = _authService.IsAdmin;
+                navBtnSwitchView.Visible = _authService?.IsAdmin ?? false;
                 navBtnSwitchView.BringToFront();
                 System.Diagnostics.Debug.WriteLine($"DEBUG: navBtnSwitchView.Visible = {navBtnSwitchView.Visible}, Location={navBtnSwitchView.Location}, Size={navBtnSwitchView.Size}");
             }
@@ -135,7 +129,7 @@ namespace ImageAnnotationApp.Forms
             }
         }
 
-        private void btnUserEntry_Click(object sender, EventArgs e)
+        private void btnUserEntry_Click(object? sender, EventArgs e)
         {
             // 游客也允许进入项目（需求1）
             // 进入用户功能时切换为用户视图（便于管理员调试）
@@ -152,7 +146,7 @@ namespace ImageAnnotationApp.Forms
             menuProjects_Click(sender, e);
         }
 
-        private void btnAdminEntry_Click(object sender, EventArgs e)
+        private void btnAdminEntry_Click(object? sender, EventArgs e)
         {
             if (!_authService.IsAdmin) return;
 
@@ -218,7 +212,7 @@ namespace ImageAnnotationApp.Forms
                 DoNavigate();
         }
 
-        private void menuProjects_Click(object sender, EventArgs e)
+        private void menuProjects_Click(object? sender, EventArgs e)
         {
             // 切换为用户视图（当管理员通过侧边点击用户项时也要切换）
             _isAdminView = false;
@@ -230,7 +224,7 @@ namespace ImageAnnotationApp.Forms
             _navigationManager.NavigateToRoot(new ProjectListForm());
         }
 
-        private void menuAdminProjects_Click(object sender, EventArgs e)
+        private void menuAdminProjects_Click(object? sender, EventArgs e)
         {
             // 切换为管理员视图
             _isAdminView = true;
@@ -242,7 +236,7 @@ namespace ImageAnnotationApp.Forms
             _navigationManager.NavigateToRoot(new ProjectManagementForm());
         }
 
-        private void menuAdminQueues_Click(object sender, EventArgs e)
+        private void menuAdminQueues_Click(object? sender, EventArgs e)
         {
             _isAdminView = true;
             UpdateNavForAdminView(_isAdminView);
@@ -253,7 +247,7 @@ namespace ImageAnnotationApp.Forms
             _navigationManager.NavigateToRoot(new QueueManagementForm());
         }
 
-        private void menuAdminUsers_Click(object sender, EventArgs e)
+        private void menuAdminUsers_Click(object? sender, EventArgs e)
         {
             _isAdminView = true;
             UpdateNavForAdminView(_isAdminView);
@@ -264,7 +258,7 @@ namespace ImageAnnotationApp.Forms
             _navigationManager.NavigateToRoot(new UserManagementForm());
         }
 
-        private void menuAdminExport_Click(object sender, EventArgs e)
+        private void menuAdminExport_Click(object? sender, EventArgs e)
         {
             _isAdminView = true;
             UpdateNavForAdminView(_isAdminView);
@@ -432,7 +426,7 @@ namespace ImageAnnotationApp.Forms
             if (btnUserEntry != null && btnUserEntry.Visible) visibleButtons.Add(btnUserEntry);
             if (btnAdminEntry != null && btnAdminEntry.Visible) visibleButtons.Add(btnAdminEntry);
 
-            int spacing = UIConstants.Spacing.Large;
+            int spacing = UIConstants.Spacing.Large * 2;
             int totalWidth = visibleButtons.Sum(b => b.Width) + Math.Max(0, (visibleButtons.Count - 1) * spacing);
             int startX = Math.Max(0, (panelWelcome.ClientSize.Width - totalWidth) / 2);
 

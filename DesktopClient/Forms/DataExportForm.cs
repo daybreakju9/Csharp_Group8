@@ -37,14 +37,17 @@ namespace ImageAnnotationApp.Forms
             this.Text = UIConstants.FormatWindowTitle("数据导出");
             this.Size = UIConstants.WindowSizes.Large;
             this.StartPosition = FormStartPosition.CenterParent;
+            this.Font = UIConstants.Fonts.Normal;
+            this.BackColor = UIConstants.Colors.Background;
 
             // 导出选择记录面板
             var panelSelections = new Panel
             {
                 Dock = DockStyle.Top,
                 Height = 120,
-                Padding = new Padding(10),
-                BorderStyle = BorderStyle.FixedSingle
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = this.BackColor
             };
 
             var lblSelectionsTitle = new Label
@@ -52,7 +55,7 @@ namespace ImageAnnotationApp.Forms
                 Text = "导出选择记录",
                 Location = new Point(10, 10),
                 AutoSize = true,
-                Font = new Font("Microsoft YaHei", 10F, FontStyle.Bold)
+                Font = new Font(UIConstants.Fonts.Normal.FontFamily, 10F, FontStyle.Bold)
             };
 
             var lblQueue = new Label
@@ -89,11 +92,11 @@ namespace ImageAnnotationApp.Forms
             {
                 Text = "导出选择记录",
                 Location = new Point(620, 35),
-                Size = new Size(150, 30),
-                BackColor = UIConstants.Colors.PrimaryButton,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
+                Size = UIConstants.ButtonSizes.Large,
+                Font = UIConstants.Fonts.Normal,
+                TextAlign = ContentAlignment.MiddleCenter
             };
+            ApplyGhostButtonStyle(btnExportSelections);
             btnExportSelections.Click += async (s, e) => await ExportSelectionsAsync();
 
             var lblSelectionsTip = new Label
@@ -102,7 +105,7 @@ namespace ImageAnnotationApp.Forms
                 Location = new Point(10, 75),
                 AutoSize = true,
                 ForeColor = Color.Gray,
-                Font = new Font("Microsoft YaHei", 9F)
+                Font = UIConstants.Fonts.Small
             };
 
             panelSelections.Controls.AddRange(new Control[]
@@ -116,8 +119,9 @@ namespace ImageAnnotationApp.Forms
             {
                 Dock = DockStyle.Top,
                 Height = 120,
-                Padding = new Padding(10),
-                BorderStyle = BorderStyle.FixedSingle
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = this.BackColor
             };
 
             var lblProgressTitle = new Label
@@ -125,7 +129,7 @@ namespace ImageAnnotationApp.Forms
                 Text = "导出进度数据",
                 Location = new Point(10, 10),
                 AutoSize = true,
-                Font = new Font("Microsoft YaHei", 10F, FontStyle.Bold)
+                Font = new Font(UIConstants.Fonts.Normal.FontFamily, 10F, FontStyle.Bold)
             };
 
             var lblProgressQueue = new Label
@@ -162,11 +166,11 @@ namespace ImageAnnotationApp.Forms
             {
                 Text = "导出进度数据",
                 Location = new Point(620, 35),
-                Size = new Size(150, 30),
-                BackColor = UIConstants.Colors.SuccessButton,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
+                Size = UIConstants.ButtonSizes.Large,
+                Font = UIConstants.Fonts.Normal,
+                TextAlign = ContentAlignment.MiddleCenter
             };
+            ApplyGhostButtonStyle(btnExportProgress, Color.FromArgb(46, 204, 113));
             btnExportProgress.Click += async (s, e) =>
             {
                 int? queueId = null;
@@ -183,7 +187,7 @@ namespace ImageAnnotationApp.Forms
                 Location = new Point(10, 75),
                 AutoSize = true,
                 ForeColor = Color.Gray,
-                Font = new Font("Microsoft YaHei", 9F)
+                Font = UIConstants.Fonts.Small
             };
 
             panelProgress.Controls.AddRange(new Control[]
@@ -196,7 +200,8 @@ namespace ImageAnnotationApp.Forms
             var panelStats = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10)
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = this.BackColor
             };
 
             var lblStatsTitle = new Label
@@ -204,20 +209,40 @@ namespace ImageAnnotationApp.Forms
                 Text = "数据统计",
                 Dock = DockStyle.Top,
                 Height = 30,
-                Font = new Font("Microsoft YaHei", 10F, FontStyle.Bold)
+                Font = new Font(UIConstants.Fonts.Normal.FontFamily, 10F, FontStyle.Bold)
             };
 
-            var toolStrip = new ToolStrip { Dock = DockStyle.Top };
-            var btnRefresh = new ToolStripButton("刷新");
+            var topPanelStats = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = UIConstants.ButtonSizes.Medium.Height + UIConstants.Spacing.Large * 2,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = this.BackColor
+            };
+            var flowStats = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                AutoScroll = false,
+                BackColor = this.BackColor
+            };
+            var btnRefresh = UIConstants.CreateButton("刷新", UIConstants.ButtonSizes.Medium, UIConstants.Colors.PrimaryButton, null);
+            btnRefresh.Font = UIConstants.Fonts.Normal;
+            btnRefresh.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
+            ApplyGhostButtonStyle(btnRefresh);
             btnRefresh.Click += async (s, e) => await LoadQueuesAsync();
-            toolStrip.Items.Add(btnRefresh);
+            flowStats.Controls.Add(btnRefresh);
+            topPanelStats.Controls.Add(flowStats);
 
             listViewQueues = new ListView
             {
                 Dock = DockStyle.Fill,
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true
+                GridLines = true,
+                Font = UIConstants.Fonts.Normal
             };
             listViewQueues.Columns.Add("所属项目", 150);
             listViewQueues.Columns.Add("队列名称", 200);
@@ -225,7 +250,7 @@ namespace ImageAnnotationApp.Forms
             listViewQueues.Columns.Add("图片组数", 100);
 
             panelStats.Controls.Add(listViewQueues);
-            panelStats.Controls.Add(toolStrip);
+            panelStats.Controls.Add(topPanelStats);
             panelStats.Controls.Add(lblStatsTitle);
 
             this.Controls.Add(panelStats);
@@ -278,6 +303,24 @@ namespace ImageAnnotationApp.Forms
                 MessageBox.Show($"加载队列列表失败: {ex.Message}", "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void ApplyGhostButtonStyle(Button btn, Color? hoverColor = null)
+        {
+            if (btn == null) return;
+
+            var normalColor = UIConstants.Colors.Background;
+            var hover = hoverColor ?? Color.FromArgb(64, 158, 255);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.LightGray;
+            btn.BackColor = normalColor;
+            btn.ForeColor = UIConstants.Colors.TextPrimary;
+            btn.Cursor = Cursors.Hand;
+            btn.FlatAppearance.MouseDownBackColor = hover;
+            btn.FlatAppearance.MouseOverBackColor = hover;
+            btn.MouseEnter += (s, e) => btn.BackColor = hover;
+            btn.MouseLeave += (s, e) => btn.BackColor = normalColor;
         }
 
         private async void ListViewQueues_DoubleClickHandler(object? s, EventArgs e)

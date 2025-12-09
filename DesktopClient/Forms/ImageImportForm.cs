@@ -214,7 +214,6 @@ namespace ImageAnnotationApp.Forms
                 Height = 50,
                 Padding = new Padding(10)
             };
-
             btnImport = new Button
             {
                 Text = "开始导入",
@@ -493,9 +492,13 @@ namespace ImageAnnotationApp.Forms
                 }
 
                 // 添加本地文件
-                foreach (var filePath in folder.FilePaths.Select(Path.GetFileName).Take(10 - folder.UploadedFileNames.Take(5).Count()))
+                foreach (var filePath in folder.FilePaths
+                             .Where(f => !string.IsNullOrWhiteSpace(f))
+                             .Select(f => Path.GetFileName(f))
+                             .Where(f => !string.IsNullOrWhiteSpace(f))
+                             .Take(10 - folder.UploadedFileNames.Take(5).Count()))
                 {
-                    fileList.Add(filePath);
+                    fileList.Add(filePath!);
                 }
 
                 var fileNames = string.Join("; ", fileList);
@@ -602,6 +605,9 @@ namespace ImageAnnotationApp.Forms
 
         private async Task BtnImport_ClickAsync()
         {
+            if (_isUploading)
+                return;
+
             if (_folders.Count == 0)
             {
                 MessageBox.Show("请至少添加一个文件夹", "提示",
@@ -635,6 +641,7 @@ namespace ImageAnnotationApp.Forms
             }
 
             _isUploading = true;
+            
             btnImport.Enabled = false;
             btnCancel.Enabled = false;
             progressPanel.Visible = true;
@@ -644,26 +651,22 @@ namespace ImageAnnotationApp.Forms
 
             try
             {
-                // 准备上传数据
-                var folderFiles = new Dictionary<string, List<(string fileName, byte[] data)>>();
-                int totalFiles = 0;
+                // 准备上传数据（传递文件路径，由服务内部处理读取）
+                var folderFiles = new Dictionary<string, List<string>>();
 
                 foreach (var folder in _folders.Values)
                 {
-                    var files = new List<(string fileName, byte[] data)>();
+                    var files = new List<string>();
                     foreach (var filePath in folder.FilePaths)
                     {
-                        try
+                        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                         {
-                            var fileData = await File.ReadAllBytesAsync(filePath);
-                            files.Add((Path.GetFileName(filePath), fileData));
-                            totalFiles++;
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show($"读取文件失败: {filePath}\n{ex.Message}", "错误",
+                            MessageBox.Show($"文件不存在: {filePath}", "警告",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            continue;
                         }
+
+                        files.Add(filePath);
                     }
                     if (files.Count > 0)
                     {

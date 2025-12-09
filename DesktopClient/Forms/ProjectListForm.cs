@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.Windows.Forms;
 using ImageAnnotationApp.Services;
 using ImageAnnotationApp.Models;
 using ImageAnnotationApp.Helpers;
@@ -9,7 +11,7 @@ namespace ImageAnnotationApp.Forms
         private readonly ProjectService _projectService;
         private readonly AuthService _authService;
         private ListView listView = null!;
-        private ToolStripButton btnRefresh = null!;
+        private Button btnRefresh = null!;
 
         public ProjectListForm()
         {
@@ -23,6 +25,9 @@ namespace ImageAnnotationApp.Forms
         {
             this.Text = UIConstants.FormatWindowTitle("项目列表");
             this.Size = UIConstants.WindowSizes.Medium;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.Font = UIConstants.Fonts.Normal;
+            this.BackColor = UIConstants.Colors.Background;
 
             // ListView
             listView = new ListView
@@ -30,7 +35,8 @@ namespace ImageAnnotationApp.Forms
                 Dock = DockStyle.Fill,
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true
+                GridLines = true,
+                Font = UIConstants.Fonts.Normal
             };
             listView.Columns.Add("ID", 50);
             listView.Columns.Add("项目名称", 200);
@@ -40,15 +46,35 @@ namespace ImageAnnotationApp.Forms
             listView.Columns.Add("创建时间", 150);
             listView.DoubleClick += ListView_DoubleClick;
 
-            // 工具栏
-            var toolStrip = new ToolStrip();
-            btnRefresh = new ToolStripButton("刷新");
+            // 顶部按钮区（与管理界面风格一致）
+            var topPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = UIConstants.ButtonSizes.Medium.Height + UIConstants.Spacing.Large * 2,
+                Padding = new Padding(UIConstants.Spacing.Medium),
+                BackColor = this.BackColor
+            };
+            var flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false,
+                AutoScroll = false,
+                BackColor = this.BackColor
+            };
+
+            btnRefresh = UIConstants.CreateButton("刷新", UIConstants.ButtonSizes.Medium, UIConstants.Colors.PrimaryButton, null);
+            btnRefresh.Font = UIConstants.Fonts.Normal;
+            btnRefresh.Margin = new Padding(0, 0, UIConstants.Spacing.Medium, 0);
+            ApplyGhostButtonStyle(btnRefresh);
             btnRefresh.Click += async (s, e) => await LoadProjectsAsync();
-            toolStrip.Items.Add(btnRefresh);
+
+            flow.Controls.Add(btnRefresh);
+            topPanel.Controls.Add(flow);
 
             this.Controls.Add(listView);
-            this.Controls.Add(toolStrip);
-            toolStrip.Dock = DockStyle.Top;
+            this.Controls.Add(topPanel);
         }
 
         private async Task LoadProjectsAsync()
@@ -103,6 +129,25 @@ namespace ImageAnnotationApp.Forms
                     NavigateTo(new QueueListForm(project.Id, project.Name));
                 }
             }
+        }
+
+        // 与管理界面保持一致的“幽灵”按钮样式
+        private void ApplyGhostButtonStyle(Button btn)
+        {
+            if (btn == null) return;
+
+            var normalColor = UIConstants.Colors.Background;
+            var hover = Color.FromArgb(64, 158, 255);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.LightGray;
+            btn.BackColor = normalColor;
+            btn.ForeColor = UIConstants.Colors.TextPrimary;
+            btn.Cursor = Cursors.Hand;
+            btn.FlatAppearance.MouseDownBackColor = hover;
+            btn.FlatAppearance.MouseOverBackColor = hover;
+            btn.MouseEnter += (s, e) => btn.BackColor = hover;
+            btn.MouseLeave += (s, e) => btn.BackColor = normalColor;
         }
     }
 }

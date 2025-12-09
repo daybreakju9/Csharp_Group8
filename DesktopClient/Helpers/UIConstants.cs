@@ -2,15 +2,13 @@ using System.Drawing;
 
 namespace ImageAnnotationApp.Helpers
 {
-    /// <summary>
     /// UI常量，定义应用程序的统一样式
-    /// </summary>
     public static class UIConstants
     {
-        // ========== 应用程序信息 ==========
+        // 应用程序信息 
         public const string AppName = "图片标注系统";
 
-        // ========== 颜色方案 ==========
+        // 颜色方案 
         public static class Colors
         {
             // 主要按钮颜色
@@ -34,7 +32,7 @@ namespace ImageAnnotationApp.Helpers
             public static readonly Color Panel = Color.White;
         }
 
-        // ========== 导航与布局 ==========
+        // 导航与布局 
         public static class Navigation
         {
             // 侧边栏默认宽度（像素），可以在主窗体里作为最小/默认值使用
@@ -43,17 +41,16 @@ namespace ImageAnnotationApp.Helpers
             public const int NavWidthLarge = 260;
         }
 
-        // ========== 按钮尺寸 ==========
+        // 按钮尺寸
         public static class ButtonSizes
         {
-            // 触控友好高度 >= 44px
             public static readonly Size Small = new Size(80, 28);
             public static readonly Size Medium = new Size(110, 36);
             public static readonly Size Large = new Size(150, 44);
             public static readonly Size TouchFriendlyLarge = new Size(170, 48);
         }
 
-        // ========== 窗口尺寸 ==========
+        // 窗口尺寸
         public static class WindowSizes
         {
             public static readonly Size Small = new Size(600, 400);
@@ -62,7 +59,7 @@ namespace ImageAnnotationApp.Helpers
             public static readonly Size ExtraLarge = new Size(1400, 800);
         }
 
-        // ========== 间距和填充 ==========
+        // 间距和填充
         public static class Spacing
         {
             public const int Small = 5;
@@ -71,7 +68,7 @@ namespace ImageAnnotationApp.Helpers
             public const int ExtraLarge = 20;
         }
 
-        // ========== 字体 ==========
+        // 字体 
         public static class Fonts
         {
             public static readonly Font Title = new Font("Microsoft YaHei", 12F, FontStyle.Bold);
@@ -80,7 +77,7 @@ namespace ImageAnnotationApp.Helpers
             public static readonly Font Small = new Font("Microsoft YaHei UI", 8F);
         }
 
-        // ========== 消息框标题 ==========
+        // 消息框标题 
         public static class MessageTitles
         {
             public const string Success = "成功";
@@ -90,7 +87,7 @@ namespace ImageAnnotationApp.Helpers
             public const string Information = "信息";
         }
 
-        // ========== 通用提示信息 ==========
+        // 通用提示信息
         public static class Messages
         {
             public const string CreateSuccess = "创建成功";
@@ -115,7 +112,7 @@ namespace ImageAnnotationApp.Helpers
             public const string ConfirmDelete = "确定要删除吗？";
         }
 
-        // ========== 状态栏消息 ==========
+        // 状态栏消息
         public static class StatusMessages
         {
             public const string Loading = "正在加载...";
@@ -127,7 +124,7 @@ namespace ImageAnnotationApp.Helpers
             public const string Completed = "完成";
         }
 
-        // ========== 窗口标题格式化 ==========
+        // 窗口标题格式化
         public static string FormatWindowTitle(string formName, string? context = null)
         {
             if (string.IsNullOrEmpty(context))
@@ -135,7 +132,7 @@ namespace ImageAnnotationApp.Helpers
             return $"{AppName} - {formName} - {context}";
         }
 
-        // ========== 创建标准按钮 ==========
+        // 创建标准按钮
         public static Button CreateButton(string text, Size size, Color backColor, EventHandler? clickHandler = null)
         {
             var button = new Button
@@ -154,19 +151,19 @@ namespace ImageAnnotationApp.Helpers
             return button;
         }
 
-        // ========== 创建标准主按钮 ==========
+        // 创建标准主按钮
         public static Button CreatePrimaryButton(string text, EventHandler? clickHandler = null)
         {
             return CreateButton(text, ButtonSizes.Medium, Colors.PrimaryButton, clickHandler);
         }
 
-        // ========== 创建标准成功按钮 ==========
+        // 创建标准成功按钮
         public static Button CreateSuccessButton(string text, EventHandler? clickHandler = null)
         {
             return CreateButton(text, ButtonSizes.Medium, Colors.SuccessButton, clickHandler);
         }
 
-        // ========== 创建标准危险按钮 ==========
+        // 创建标准危险按钮
         public static Button CreateDangerButton(string text, EventHandler? clickHandler = null)
         {
             return CreateButton(text, ButtonSizes.Medium, Colors.DangerButton, clickHandler);
