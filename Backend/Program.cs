@@ -18,10 +18,10 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// 大文件上传限制
+// 大文件上传
 builder.WebHost.ConfigureKestrel(opt =>
 {
-    opt.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024; // 2 GB
+    opt.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024;
     opt.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
 });
 
@@ -32,7 +32,7 @@ builder.Services.Configure<FormOptions>(opt =>
     opt.MultipartHeadersLengthLimit = int.MaxValue;
 });
 
-// Controllers & Validation
+// Controllers + 统一模型验证返回
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -79,7 +79,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite(connectionString));
 
-// JWT 安全强化（强制强密钥）
+// JWT 强密钥校验
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"] ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
@@ -103,7 +103,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// CORS
+// CORS 可配置
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
     .Get<string[]>() ?? new[] { "http://localhost:5174", "http://localhost:3000" };
 
@@ -117,27 +117,46 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// 数据库初始化（异步 + 安全管理员策略）
+// 异步迁移 + 30秒超时保护
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    if (app.Environment.IsDevelopment() &&
-        builder.Configuration.GetValue<bool>("Auth:CreateDefaultAdmin", false))
+    try
     {
-        if (!await db.Users.AnyAsync(u => u.Username == "admin"))
+        logger.LogInformation("正在应用数据库迁移...");
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await db.Database.MigrateAsync(cts.Token);
+        logger.LogInformation("数据库迁移完成");
+
+        // 仅开发环境可选自动创建管理员
+        if (app.Environment.IsDevelopment() &&
+            builder.Configuration.GetValue<bool>("Auth:CreateDefaultAdmin", false))
         {
-            db.Users.Add(new Backend.Models.User
+            if (!await db.Users.AnyAsync(u => u.Username == "admin"))
             {
-                Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                Role = "Admin",
-                CreatedAt = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync();
-            Console.WriteLine("【开发环境】默认管理员已创建：admin / Admin@123");
+                db.Users.Add(new Backend.Models.User
+                {
+                    Username = "admin",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                    Role = "Admin",
+                    CreatedAt = DateTime.UtcNow
+                });
+                await db.SaveChangesAsync();
+                logger.LogWarning("【开发环境】已自动创建默认管理员：admin / Admin@123");
+            }
         }
+    }
+    catch (OperationCanceledException)
+    {
+        logger.LogError("数据库迁移超时（30秒），请检查 database.db 是否被其他程序占用");
+        throw;
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "数据库迁移失败");
+        throw;
     }
 }
 
@@ -153,7 +172,7 @@ if (!app.Environment.IsDevelopment()) app.UseHsts();
 
 app.UseCors("AllowFrontend");
 
-// 静态文件：30 天强缓存 + 配置化防盗链
+// 静态文件：长缓存 + 防盗链
 var uploadRoot = builder.Configuration["Storage:UploadRoot"] ?? "uploads";
 if (!Path.IsPathFullyQualified(uploadRoot))
     uploadRoot = Path.Combine(app.Environment.ContentRootPath, uploadRoot);
@@ -163,7 +182,7 @@ Directory.CreateDirectory(uploadRoot);
 var allowedReferers = builder.Configuration
     .GetSection("Security:AllowedReferers")
     .Get<string[]>()
-    ?? new[] { "http://localhost:5174", "http://localhost:3000", "https://yourdomain.com" };
+    ?? new[] { "http://localhost:5174", "http://localhost:3000" };
 
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -171,18 +190,18 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads",
     OnPrepareResponse = ctx =>
     {
-        // 长缓存
+        // 30 天强缓存
         ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=2592000, immutable";
 
-        // 基础防盗链
+        // 防盗链
         var referer = ctx.Context.Request.Headers.Referer.ToString();
         if (!string.IsNullOrEmpty(referer) &&
             !allowedReferers.Any(r => referer.StartsWith(r, StringComparison.OrdinalIgnoreCase)))
         {
             ctx.Context.Response.StatusCode = 403;
             ctx.Context.Response.ContentType = "text/plain";
-            ctx.Context.Response.WriteAsync("Forbidden: invalid referer");
-            return;
+            ctx.Context.Response.Body.WriteAsync(Encoding.UTF8.GetBytes("Forbidden: invalid referer")).AsTask().Wait();
+            return; // 直接返回，阻止文件发送
         }
     }
 });
