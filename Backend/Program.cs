@@ -232,7 +232,11 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
-// 请求/响应日志（含 4xx/5xx 与异常）
+// 🔧【修改这里】调整中间件顺序
+// 全局异常处理（必须在最前面）
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+// 请求/响应日志（现在只记录，不再处理异常）
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 app.UseAuthentication();
