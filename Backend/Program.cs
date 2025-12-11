@@ -18,6 +18,8 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
+// 减少EF Core的SQL日志噪音（只记录警告和错误）
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 // 大文件上传
 builder.WebHost.ConfigureKestrel(opt =>
 {
@@ -33,7 +35,15 @@ builder.Services.Configure<FormOptions>(opt =>
 });
 
 // Controllers + 统一模型验证返回
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = false;
+    });
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -75,9 +85,24 @@ builder.Services.AddScoped<IQueueService, QueueService>();
 builder.Services.AddScoped<ISelectionService, SelectionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
-// Database
+
+// Configure SQLite Database with optimized settings
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite(connectionString));
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    options.UseSqlite(connectionString, sqliteOptions =>
+    {
+        sqliteOptions.CommandTimeout(30); // 30秒命令超时
+        sqliteOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+    });
+    
+    // 开发环境启用详细日志
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableDetailedErrors();
+        options.EnableSensitiveDataLogging();
+    }
+});
 
 // JWT 强密钥校验
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -171,6 +196,8 @@ app.UseHttpsRedirection();
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 
 app.UseCors("AllowFrontend");
+// Serve static files (uploaded images)
+var uploadRoot = builder.Configuration["Storage:UploadRoot"];
 
 // 静态文件：长缓存 + 防盗链
 var uploadRoot = builder.Configuration["Storage:UploadRoot"] ?? "uploads";
@@ -184,28 +211,27 @@ var allowedReferers = builder.Configuration
     .Get<string[]>()
     ?? new[] { "http://localhost:5174", "http://localhost:3000" };
 
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadRoot),
     RequestPath = "/uploads",
     OnPrepareResponse = ctx =>
     {
-        // 30 天强缓存
-        ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=2592000, immutable";
-
-        // 防盗链
-        var referer = ctx.Context.Request.Headers.Referer.ToString();
-        if (!string.IsNullOrEmpty(referer) &&
-            !allowedReferers.Any(r => referer.StartsWith(r, StringComparison.OrdinalIgnoreCase)))
-        {
-            ctx.Context.Response.StatusCode = 403;
-            ctx.Context.Response.ContentType = "text/plain";
-            ctx.Context.Response.Body.WriteAsync(Encoding.UTF8.GetBytes("Forbidden: invalid referer")).AsTask().Wait();
-            return; // 直接返回，阻止文件发送
-        }
+        // 图片缓存1小时，减少服务器压力
+        ctx.Context.Response.Headers.Append(
+            "Cache-Control", 
+            app.Environment.IsDevelopment() 
+                ? "no-cache" 
+                : "public, max-age=3600");
     }
 });
 
+// 🔧【修改这里】调整中间件顺序
+// 全局异常处理（必须在最前面）
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+// 请求/响应日志（现在只记录，不再处理异常）
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 app.UseAuthentication();
