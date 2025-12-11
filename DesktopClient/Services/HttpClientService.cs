@@ -92,14 +92,31 @@ namespace ImageAnnotationApp.Services
 
                 var response = await _httpClient.PostAsync($"{BaseUrl}/{endpoint}", content);
 
+                // 读取响应内容，无论是成功还是失败
+                var responseContent = await response.Content.ReadAsStringAsync();
+
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
                     SetToken(null);
+                    
+                    // 尝试解析后端返回的错误消息
+                    try
+                    {
+                        var errorResponse = JsonSerializer.Deserialize<Dictionary<string, string>>(responseContent, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+                        if (errorResponse != null && errorResponse.ContainsKey("message"))
+                        {
+                            throw new UnauthorizedAccessException(errorResponse["message"]);
+                        }
+                    }
+                    catch { }
+                    
                     throw new UnauthorizedAccessException("未授权，请重新登录");
                 }
 
                 response.EnsureSuccessStatusCode();
-                var responseContent = await response.Content.ReadAsStringAsync();
                 return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true

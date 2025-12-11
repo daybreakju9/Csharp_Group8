@@ -48,7 +48,8 @@ public class FileCallbackResult : FileResult
 
             if (!string.IsNullOrEmpty(_fileDownloadName))
             {
-                _response.Headers.Append("Content-Disposition", $"attachment; filename=\"{_fileDownloadName}\"");
+                var encodedFileName = System.Web.HttpUtility.UrlEncode(_fileDownloadName, System.Text.Encoding.UTF8);
+                _response.Headers.Append("Content-Disposition", $"attachment; filename=\"{encodedFileName}\"");
             }
 
             await _callback(_response.Body, context);

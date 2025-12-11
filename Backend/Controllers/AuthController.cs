@@ -78,13 +78,13 @@ public class AuthController : ControllerBase
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == loginDto.Username);
         if (user == null)
         {
-            return Unauthorized(new { message = "用户名或密码错误" });
+            return Unauthorized(new { message = "登录失败：用户名不存在" });
         }
 
         // Verify password
         if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
         {
-            return Unauthorized(new { message = "用户名或密码错误" });
+            return Unauthorized(new { message = "登录失败：密码错误" });
         }
 
         // Generate JWT token

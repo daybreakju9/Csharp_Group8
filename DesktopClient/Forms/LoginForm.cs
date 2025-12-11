@@ -53,7 +53,7 @@ namespace ImageAnnotationApp.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"登录失败: {ex.Message}", "错误",
+                MessageBox.Show(ex.Message, "错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 btnLogin.Enabled = true;
                 btnLogin.Text = "登录";

@@ -246,7 +246,7 @@ namespace ImageAnnotationApp.Forms
             };
             listViewQueues.Columns.Add("所属项目", 150);
             listViewQueues.Columns.Add("队列名称", 200);
-            listViewQueues.Columns.Add("总图片数", 100);
+            listViewQueues.Columns.Add("查重后图片数", 200);
             listViewQueues.Columns.Add("图片组数", 100);
 
             panelStats.Controls.Add(listViewQueues);
