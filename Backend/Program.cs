@@ -20,24 +20,21 @@ builder.Logging.AddDebug();
 
 // 减少EF Core的SQL日志噪音（只记录警告和错误）
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
-
-// Configure Kestrel server limits for file uploads
-builder.WebHost.ConfigureKestrel(serverOptions =>
+// 大文件上传
+builder.WebHost.ConfigureKestrel(opt =>
 {
-    serverOptions.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024; // 2 GB
-    serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
+    opt.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024;
+    opt.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
 });
 
-// Configure form options for multipart/form-data
-builder.Services.Configure<FormOptions>(options =>
+builder.Services.Configure<FormOptions>(opt =>
 {
-    options.MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024; // 2 GB
-    options.ValueLengthLimit = int.MaxValue;
-    options.ValueCountLimit = int.MaxValue;
-    options.MultipartHeadersLengthLimit = int.MaxValue;
+    opt.MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024;
+    opt.ValueLengthLimit = int.MaxValue;
+    opt.MultipartHeadersLengthLimit = int.MaxValue;
 });
 
-// Add services to the container
+// Controllers + 统一模型验证返回
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -57,19 +54,12 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
         var errors = context.ModelState
             .Where(e => e.Value?.Errors.Count > 0)
-            .Select(e => new
-            {
-                Field = e.Key,
-                Errors = e.Value!.Errors.Select(err => err.ErrorMessage)
-            })
+            .Select(e => new { Field = e.Key, Errors = e.Value!.Errors.Select(x => x.ErrorMessage) })
             .ToList();
 
         var correlationId = context.HttpContext.TraceIdentifier;
-
         logger.LogWarning("模型验证失败 Path={Path} CorrelationId={CorrelationId} Errors={Errors}",
-            context.HttpContext.Request.Path,
-            correlationId,
-            JsonSerializer.Serialize(errors));
+            context.HttpContext.Request.Path, correlationId, JsonSerializer.Serialize(errors));
 
         return new BadRequestObjectResult(new
         {
@@ -79,13 +69,12 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         });
     };
 });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register Repository layer
+// DI
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// Register Service layer
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IImageProcessingService, ImageProcessingService>();
@@ -95,6 +84,7 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IQueueService, QueueService>();
 builder.Services.AddScoped<ISelectionService, SelectionService>();
 builder.Services.AddScoped<IUserService, UserService>();
+
 
 // Configure SQLite Database with optimized settings
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -114,109 +104,114 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }
 });
 
-// Configure JWT Authentication
+// JWT 强密钥校验
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"];
+var secretKey = jwtSettings["SecretKey"] ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+if (string.IsNullOrWhiteSpace(secretKey) || Encoding.UTF8.GetBytes(secretKey).Length < 32)
+    throw new InvalidOperationException("JWT SecretKey 必须 ≥32 字节（256 bit）");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opt =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
-    };
-});
-
+        opt.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+    });
 builder.Services.AddAuthorization();
 
-// Configure CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://localhost:5174", "http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
+// CORS 可配置
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? new[] { "http://localhost:5174", "http://localhost:3000" };
+
+builder.Services.AddCors(opt => opt.AddPolicy("AllowFrontend", p => p
+    .WithOrigins(allowedOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
+
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// Ensure database is created and migrated
+// 异步迁移 + 30秒超时保护
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
     try
     {
-        // Apply migrations
-        dbContext.Database.Migrate();
-        Console.WriteLine("Database migrated successfully.");
+        logger.LogInformation("正在应用数据库迁移...");
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await db.Database.MigrateAsync(cts.Token);
+        logger.LogInformation("数据库迁移完成");
 
-        // 创建默认管理员账号
-        if (!dbContext.Users.Any(u => u.Username == "admin"))
+        // 仅开发环境可选自动创建管理员
+        if (app.Environment.IsDevelopment() &&
+            builder.Configuration.GetValue<bool>("Auth:CreateDefaultAdmin", false))
         {
-            var adminUser = new Backend.Models.User
+            if (!await db.Users.AnyAsync(u => u.Username == "admin"))
             {
-                Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                Role = "Admin",
-                CreatedAt = DateTime.UtcNow
-            };
-            dbContext.Users.Add(adminUser);
-            dbContext.SaveChanges();
-            Console.WriteLine("Default admin user created: admin/Admin@123");
+                db.Users.Add(new Backend.Models.User
+                {
+                    Username = "admin",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                    Role = "Admin",
+                    CreatedAt = DateTime.UtcNow
+                });
+                await db.SaveChangesAsync();
+                logger.LogWarning("【开发环境】已自动创建默认管理员：admin / Admin@123");
+            }
         }
-        else
-        {
-            Console.WriteLine("Admin user already exists.");
-        }
+    }
+    catch (OperationCanceledException)
+    {
+        logger.LogError("数据库迁移超时（30秒），请检查 database.db 是否被其他程序占用");
+        throw;
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Database initialization error: {ex.Message}");
+        logger.LogError(ex, "数据库迁移失败");
+        throw;
     }
 }
 
-// Configure the HTTP request pipeline
+// Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowFrontend");
+app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment()) app.UseHsts();
 
+app.UseCors("AllowFrontend");
 // Serve static files (uploaded images)
 var uploadRoot = builder.Configuration["Storage:UploadRoot"];
 
+// 静态文件：长缓存 + 防盗链
+var uploadRoot = builder.Configuration["Storage:UploadRoot"] ?? "uploads";
 if (!Path.IsPathFullyQualified(uploadRoot))
-{
-    uploadRoot = Path.Combine(Directory.GetCurrentDirectory(), uploadRoot);
-}
+    uploadRoot = Path.Combine(app.Environment.ContentRootPath, uploadRoot);
 
-// Ensure directory exists (auto-create)
-if (!Directory.Exists(uploadRoot))
-{
-    Directory.CreateDirectory(uploadRoot);
-    Console.WriteLine($"[Storage] Upload directory created at: {uploadRoot}");
-}
-else
-{
-    Console.WriteLine($"[Storage] Upload directory already exists: {uploadRoot}");
-}
+Directory.CreateDirectory(uploadRoot);
 
-// Serve static files from this directory (with cache control)
+var allowedReferers = builder.Configuration
+    .GetSection("Security:AllowedReferers")
+    .Get<string[]>()
+    ?? new[] { "http://localhost:5174", "http://localhost:3000" };
+
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadRoot),
@@ -243,5 +238,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
