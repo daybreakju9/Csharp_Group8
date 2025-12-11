@@ -7,7 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Backend.Middleware;
 
 /// <summary>
-/// 捕获请求返回的 4xx/5xx 响应以及未处理异常，输出包含关联 ID 的详细日志，并将日志落盘。
+/// 捕获请求返回的 4xx/5xx 响应，输出包含关联 ID 的详细日志，并将日志落盘。
+/// （不再处理异常，异常由 GlobalExceptionHandlerMiddleware 处理）
 /// </summary>
 public class RequestResponseLoggingMiddleware
 {
@@ -34,22 +35,17 @@ public class RequestResponseLoggingMiddleware
         if (context.Request.Path.StartsWithSegments("/api/export"))
         {
             var sw = Stopwatch.StartNew();
-            Exception? exportException = null;
-            try
-            {
-                await _next(context);
-            }
-            catch (Exception ex)
-            {
-                exportException = ex;
-                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                _logger.LogError(ex, "Export request failed: {Path} CorrelationId={CorrelationId}", context.Request.Path, correlationId);
-            }
+            
+            // 导出接口直接调用下一个中间件，异常由全局处理器处理
+            await _next(context);
 
+            // 如果状态码是错误状态，记录日志
             if (context.Response.StatusCode >= StatusCodes.Status400BadRequest)
             {
-                var logEntry = BuildLogEntry(context, correlationId, sw.ElapsedMilliseconds, null, exportException);
+                var logEntry = BuildLogEntry(context, correlationId, sw.ElapsedMilliseconds, null, null);
                 await WriteLogAsync(logEntry);
+                _logger.LogWarning("导出请求错误: {Path} {StatusCode} CorrelationId={CorrelationId}",
+                    context.Request.Path, context.Response.StatusCode, correlationId);
             }
 
             return;
@@ -61,28 +57,8 @@ public class RequestResponseLoggingMiddleware
         await using var responseBody = new MemoryStream();
         context.Response.Body = responseBody;
 
-        Exception? capturedException = null;
-
-        try
-        {
-            await _next(context);
-        }
-        catch (Exception ex)
-        {
-            capturedException = ex;
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            context.Response.ContentType = "application/json";
-
-            responseBody.SetLength(0);
-            var payload = JsonSerializer.Serialize(new
-            {
-                message = "服务器内部错误，请稍后再试",
-                correlationId
-            });
-            var buffer = Encoding.UTF8.GetBytes(payload);
-            await responseBody.WriteAsync(buffer, 0, buffer.Length);
-            responseBody.Seek(0, SeekOrigin.Begin);
-        }
+        // 直接调用下一个中间件，不再捕获异常
+        await _next(context);
 
         responseBody.Seek(0, SeekOrigin.Begin);
         var responseText = await new StreamReader(responseBody).ReadToEndAsync();
@@ -90,6 +66,7 @@ public class RequestResponseLoggingMiddleware
 
         var elapsedMs = stopwatch.ElapsedMilliseconds;
 
+        // 记录所有错误响应（4xx, 5xx）
         if (context.Response.StatusCode >= StatusCodes.Status400BadRequest)
         {
             var logEntry = BuildLogEntry(
@@ -97,28 +74,41 @@ public class RequestResponseLoggingMiddleware
                 correlationId,
                 elapsedMs,
                 Truncate(responseText, 4000),
-                capturedException);
+                null); // 不再记录异常，因为已经由全局处理器处理
 
             await WriteLogAsync(logEntry);
 
-            if (capturedException != null)
+            // 根据状态码级别记录不同日志
+            if (context.Response.StatusCode >= 500)
             {
-                _logger.LogError(capturedException,
-                    "请求异常: {Method} {Path} 状态码={StatusCode}, CorrelationId={CorrelationId}",
+                _logger.LogError(
+                    "服务器错误: {Method} {Path} 状态码={StatusCode}, 耗时={ElapsedMs}ms, CorrelationId={CorrelationId}",
                     context.Request.Method,
                     context.Request.Path,
                     context.Response.StatusCode,
+                    elapsedMs,
                     correlationId);
             }
             else
             {
                 _logger.LogWarning(
-                    "请求返回错误: {Method} {Path} 状态码={StatusCode}, CorrelationId={CorrelationId}",
+                    "客户端错误: {Method} {Path} 状态码={StatusCode}, 耗时={ElapsedMs}ms, CorrelationId={CorrelationId}",
                     context.Request.Method,
                     context.Request.Path,
                     context.Response.StatusCode,
+                    elapsedMs,
                     correlationId);
             }
+        }
+
+        // 记录慢请求（超过1秒）
+        if (elapsedMs > 1000)
+        {
+            _logger.LogWarning("慢请求: {Method} {Path} - {ElapsedMs}ms CorrelationId={CorrelationId}",
+                context.Request.Method,
+                context.Request.Path,
+                elapsedMs,
+                correlationId);
         }
 
         await responseBody.CopyToAsync(originalBodyStream);
@@ -176,4 +166,3 @@ public class RequestResponseLoggingMiddleware
         await File.AppendAllTextAsync(logFile, content, Encoding.UTF8);
     }
 }
-

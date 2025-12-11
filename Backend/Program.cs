@@ -18,6 +18,9 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
+// 减少EF Core的SQL日志噪音（只记录警告和错误）
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+
 // Configure Kestrel server limits for file uploads
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
@@ -35,7 +38,15 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = false;
+    });
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -85,10 +96,23 @@ builder.Services.AddScoped<IQueueService, QueueService>();
 builder.Services.AddScoped<ISelectionService, SelectionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
-// Configure SQLite Database
+// Configure SQLite Database with optimized settings
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+{
+    options.UseSqlite(connectionString, sqliteOptions =>
+    {
+        sqliteOptions.CommandTimeout(30); // 30秒命令超时
+        sqliteOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+    });
+    
+    // 开发环境启用详细日志
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableDetailedErrors();
+        options.EnableSensitiveDataLogging();
+    }
+});
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -174,13 +198,6 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 
 // Serve static files (uploaded images)
-/*app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "uploads")),
-    RequestPath = "/uploads"
-});*/
-
 var uploadRoot = builder.Configuration["Storage:UploadRoot"];
 
 if (!Path.IsPathFullyQualified(uploadRoot))
@@ -199,16 +216,28 @@ else
     Console.WriteLine($"[Storage] Upload directory already exists: {uploadRoot}");
 }
 
-// Serve static files from this directory
+// Serve static files from this directory (with cache control)
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadRoot),
-    RequestPath = "/uploads"
+    RequestPath = "/uploads",
+    OnPrepareResponse = ctx =>
+    {
+        // 图片缓存1小时，减少服务器压力
+        ctx.Context.Response.Headers.Append(
+            "Cache-Control", 
+            app.Environment.IsDevelopment() 
+                ? "no-cache" 
+                : "public, max-age=3600");
+    }
 });
 
-// 请求/响应日志（含 4xx/5xx 与异常）
-app.UseMiddleware<RequestResponseLoggingMiddleware>();
+// 🔧【修改这里】调整中间件顺序
+// 全局异常处理（必须在最前面）
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
+// 请求/响应日志（现在只记录，不再处理异常）
+app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
