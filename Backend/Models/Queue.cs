@@ -9,8 +9,8 @@ public class Queue
 {
     public int Id { get; set; }
 
-    public int ProjectId { get; set; }
-    public Project Project { get; set; } = null!;
+    public int? ProjectId { get; set; }
+    public Project? Project { get; set; }
 
     /// <summary>
     /// 队列名称
