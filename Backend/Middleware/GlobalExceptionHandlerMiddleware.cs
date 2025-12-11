@@ -112,6 +112,16 @@ public class GlobalExceptionHandlerMiddleware
 
         // 返回JSON响应
         var jsonResponse = JsonSerializer.Serialize(errorResponse);
-        await response.WriteAsync(jsonResponse);
+        
+        // 确保响应流仍然可用
+        if (!response.HasStarted)
+        {
+            await response.WriteAsync(jsonResponse);
+        }
+        else
+        {
+            // 如果响应已经开始，尝试使用替代方式记录错误
+            _logger.LogWarning("无法写入响应流，因为响应已经开始。错误信息: {Message}", exception.Message);
+        }
     }
 }

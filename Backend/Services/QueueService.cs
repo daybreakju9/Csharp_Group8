@@ -30,7 +30,7 @@ public class QueueService : IQueueService
             return Enumerable.Empty<QueueDto>();
         }
 
-        var projectIds = queues.Select(q => q.ProjectId).Distinct().ToList();
+        var projectIds = queues.Select(q => q.ProjectId).Where(id => id.HasValue).Select(id => id.Value).Distinct().ToList();
         var projects = await _unitOfWork.Projects.FindAsync(p => projectIds.Contains(p.Id));
         var projectNameLookup = projects.ToDictionary(p => p.Id, p => p.Name);
 
@@ -38,7 +38,7 @@ public class QueueService : IQueueService
 
         foreach (var queue in queues)
         {
-            projectNameLookup.TryGetValue(queue.ProjectId, out var projectName);
+            projectNameLookup.TryGetValue(queue.ProjectId ?? 0, out var projectName);
             queueDtos.Add(new QueueDto
             {
                 Id = queue.Id,
@@ -67,7 +67,11 @@ public class QueueService : IQueueService
             return null;
         }
 
-        var project = await _unitOfWork.Projects.GetByIdAsync(queue.ProjectId);
+        Project? project = null;
+        if (queue.ProjectId.HasValue)
+        {
+            project = await _unitOfWork.Projects.GetByIdAsync(queue.ProjectId.Value);
+        }
 
         return new QueueDto
         {
@@ -89,7 +93,7 @@ public class QueueService : IQueueService
     public async Task<QueueDto> CreateAsync(CreateQueueDto createDto)
     {
         // 验证项目是否存在
-        var projectExists = await _unitOfWork.Projects.GetByIdAsync(createDto.ProjectId);
+        var projectExists = await _unitOfWork.Projects.GetByIdAsync(createDto.ProjectId.Value);
         if (projectExists == null)
         {
             throw new ArgumentException("项目不存在");
@@ -119,7 +123,11 @@ public class QueueService : IQueueService
             throw new InvalidOperationException("队列创建失败");
         }
 
-        var project = await _unitOfWork.Projects.GetByIdAsync(createdQueue.ProjectId);
+        Project? project = null;
+        if (createdQueue.ProjectId.HasValue)
+        {
+            project = await _unitOfWork.Projects.GetByIdAsync(createdQueue.ProjectId.Value);
+        }
 
         return new QueueDto
         {
@@ -172,7 +180,11 @@ public class QueueService : IQueueService
             return null;
         }
 
-        var project = await _unitOfWork.Projects.GetByIdAsync(updatedQueue.ProjectId);
+        Project? project = null;
+        if (updatedQueue.ProjectId.HasValue)
+        {
+            project = await _unitOfWork.Projects.GetByIdAsync(updatedQueue.ProjectId.Value);
+        }
 
         return new QueueDto
         {
@@ -197,6 +209,12 @@ public class QueueService : IQueueService
         if (queue == null)
         {
             return false;
+        }
+
+        // 限制删除Active状态的队列
+        if (queue.Status == QueueStatus.Active)
+        {
+            throw new InvalidOperationException("不能删除处于进行中状态的队列，请先将队列状态更改为已完成或已归档");
         }
 
         await _unitOfWork.BeginTransactionAsync();

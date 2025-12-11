@@ -55,7 +55,7 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.Project)
                 .WithMany(p => p.Queues)
                 .HasForeignKey(e => e.ProjectId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.ProjectId);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.CreatedAt);
@@ -93,7 +93,11 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.ImageGroupId);
             entity.HasIndex(e => new { e.ImageGroupId, e.DisplayOrder });
             entity.HasIndex(e => e.FileHash);
-            entity.HasIndex(e => new { e.QueueId, e.FileHash }).IsUnique();
+            // 只对未删除的记录应用唯一索引约束
+            entity.HasIndex(e => new { e.QueueId, e.FileHash })
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0");
+
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
