@@ -5,7 +5,7 @@ namespace Backend.DTOs;
 public class CreateQueueDto
 {
     [Required(ErrorMessage = "项目ID是必需的")]
-    public int? ProjectId { get; set; }
+    public int ProjectId { get; set; }
 
     [Required(ErrorMessage = "队列名称是必需的")]
     [MaxLength(200)]
@@ -42,7 +42,7 @@ public class UpdateQueueDto
 public class QueueDto
 {
     public int Id { get; set; }
-    public int? ProjectId { get; set; }
+    public int ProjectId { get; set; }
     public string ProjectName { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
