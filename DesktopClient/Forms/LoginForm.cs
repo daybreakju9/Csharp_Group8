@@ -11,6 +11,7 @@ namespace ImageAnnotationApp.Forms
         {
             InitializeComponent();
             _authService = AuthService.Instance;
+            txtServer.Text = HttpClientService.Instance.BaseUrl;
         }
 
         private async void btnLogin_Click(object sender, EventArgs e)
@@ -28,6 +29,16 @@ namespace ImageAnnotationApp.Forms
                 txtPassword.Focus();
                 return;
             }
+
+            if (string.IsNullOrWhiteSpace(txtServer.Text))
+            {
+                MessageBox.Show("请输入服务器地址", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtServer.Focus();
+                return;
+            }
+
+            // 更新服务器地址
+            HttpClientService.Instance.BaseUrl = txtServer.Text.Trim().TrimEnd('/');
 
             btnLogin.Enabled = false;
             btnLogin.Text = "登录中...";
@@ -62,6 +73,11 @@ namespace ImageAnnotationApp.Forms
 
         private void btnRegister_Click(object sender, EventArgs e)
         {
+            if (!string.IsNullOrWhiteSpace(txtServer.Text))
+            {
+                HttpClientService.Instance.BaseUrl = txtServer.Text.Trim().TrimEnd('/');
+            }
+
             var registerForm = new RegisterForm();
             registerForm.ShowDialog();
         }

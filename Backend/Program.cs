@@ -96,14 +96,15 @@ builder.Services.AddScoped<IQueueService, QueueService>();
 builder.Services.AddScoped<ISelectionService, SelectionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
-// Configure SQLite Database with optimized settings
+// Configure MySQL Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var serverVersion = new MySqlServerVersion(new Version(8, 0, 35)); // 根据你的MySQL版本调整
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlite(connectionString, sqliteOptions =>
+    options.UseMySql(connectionString, serverVersion, mysqlOptions =>
     {
-        sqliteOptions.CommandTimeout(30); // 30秒命令超时
-        sqliteOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+        mysqlOptions.CommandTimeout(30); // 30秒命令超时
+        mysqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
     });
     
     // 开发环境启用详细日志
